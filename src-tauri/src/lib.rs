@@ -1,16 +1,19 @@
 mod browser;
 mod macos;
+mod prompts;
 mod rules;
+mod weather;
 
 use browser::{AxState, Fetch, MainRunner, Target};
-use chrono::Local;
-use rules::{Config, DayStats, Reason, Stats};
+use chrono::{Local, Timelike};
+use prompts::Prompt;
+use rules::{Config, Countdown, DayStats, Reason, Stats};
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
 use tauri::window::{Effect, EffectState, EffectsBuilder};
 use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
@@ -18,6 +21,106 @@ use tauri_plugin_autostart::ManagerExt;
 
 const TICK: Duration = Duration::from_millis(900);
 const STATS_KEEP_DAYS: usize = 120;
+/// How long a finished pause stays finished after the user leaves the tab or the browser.
+const WAITED_GRACE: Duration = Duration::from_secs(10 * 60);
+
+// ---------- menu bar ----------
+
+/// Time left as the menu bar shows it: whole minutes rounded up, seconds in the last minute.
+fn short_left(d: Duration) -> String {
+    let secs = d.as_secs() + u64::from(d.subsec_nanos() > 0);
+    if secs < 60 {
+        return format!("{secs}s");
+    }
+    let m = secs.div_ceil(60);
+    match (m / 60, m % 60) {
+        (0, m) => format!("{m}m"),
+        (h, 0) => format!("{h}h"),
+        (h, m) => format!("{h}h {m}m"),
+    }
+}
+
+/// Unlocked rules that haven't run out yet, soonest first: (rule id, rule name, time left).
+fn open_windows(c: &Core) -> Vec<(String, String, Duration)> {
+    let now = Instant::now();
+    let mut open: Vec<(String, String, Duration)> = c
+        .allowances
+        .iter()
+        .filter(|(_, &until)| until > now)
+        .map(|(id, &until)| {
+            let name = c.config.rules.iter().find(|r| &r.id == id).map_or("A rule", |r| r.name.as_str());
+            (id.clone(), name.to_string(), until - now)
+        })
+        .collect();
+    open.sort_by(|a, b| a.2.cmp(&b.2).then_with(|| a.1.cmp(&b.1)));
+    open
+}
+
+fn tray_menu(app: &AppHandle, lines: &[String]) -> tauri::Result<(Menu<tauri::Wry>, Vec<MenuItem<tauri::Wry>>)> {
+    let menu = Menu::new(app)?;
+    let mut items = vec![];
+    for (n, line) in lines.iter().enumerate() {
+        let item = MenuItem::with_id(app, format!("left-{n}"), line, false, None::<&str>)?;
+        menu.append(&item)?;
+        items.push(item);
+    }
+    if !lines.is_empty() {
+        menu.append(&PredefinedMenuItem::separator(app)?)?;
+    }
+    menu.append(&MenuItem::with_id(app, "open", "Open Defixum…", true, None::<&str>)?)?;
+    menu.append(&PredefinedMenuItem::separator(app)?)?;
+    menu.append(&MenuItem::with_id(app, "quit", "Quit Defixum", true, None::<&str>)?)?;
+    Ok((menu, items))
+}
+
+/// What the tray currently shows, so it's only touched when something changed.
+#[derive(Default)]
+struct TrayView {
+    title: Option<String>,
+    rule_ids: Vec<String>,
+    lines: Vec<String>,
+    items: Vec<MenuItem<tauri::Wry>>,
+}
+
+/// Puts the soonest-ending unlock next to the menu bar icon and lists every unlock in its menu.
+fn refresh_tray(app: &AppHandle, core: &Shared, view: &mut TrayView) {
+    let open = open_windows(&core.lock().unwrap());
+    let title = open.first().map(|(_, _, left)| short_left(*left));
+    let rule_ids: Vec<String> = open.iter().map(|(id, _, _)| id.clone()).collect();
+    let lines: Vec<String> = open.iter().map(|(_, name, left)| format!("{name}: {} left", short_left(*left))).collect();
+    let Some(tray) = app.tray_by_id("tray") else { return };
+
+    if title != view.title {
+        let _ = tray.set_title(title.as_deref());
+        // text to the left of the logo (tray-icon puts it on the right)
+        let _ = tray.with_inner_tray_icon(|t| {
+            if let Some(item) = t.ns_status_item() {
+                unsafe {
+                    let button: Option<objc2::rc::Retained<objc2::runtime::AnyObject>> = objc2::msg_send![&*item, button];
+                    if let Some(button) = button {
+                        let _: () = objc2::msg_send![&*button, setImagePosition: 3usize]; // NSImageRight
+                    }
+                }
+            }
+        });
+        view.title = title;
+    }
+    if rule_ids != view.rule_ids {
+        // a different set of unlocks: rebuild the menu
+        if let Ok((menu, items)) = tray_menu(app, &lines) {
+            let _ = tray.set_menu(Some(menu));
+            view.items = items;
+            view.rule_ids = rule_ids;
+            view.lines = lines;
+        }
+    } else if lines != view.lines {
+        // same unlocks, new times: update in place so an open menu stays open and current
+        for (item, line) in view.items.iter().zip(&lines) {
+            let _ = item.set_text(line);
+        }
+        view.lines = lines;
+    }
+}
 
 // ---------- logging ----------
 
@@ -43,12 +146,20 @@ struct Intercept {
     site: String,
     reason: Reason,
     pause_seconds: u32,
+    countdown: Countdown,
+    /// Chosen once when the pause starts, so a re-render shows the same text. Only for pauses.
+    prompt: Option<Prompt>,
     opens_today: u32,
     minutes_today: u64,
     daily_opens: Option<u32>,
     daily_minutes: Option<u32>,
     session_options: Vec<u32>,
     until: Option<String>,
+    sky: String,
+    /// the weather outside, when that setting is on and a recent reading exists
+    weather: Option<weather::Weather>,
+    /// The pause was already served earlier (see `Core::waited`), so the overlay skips the countdown.
+    waited: bool,
     #[serde(skip)]
     shown_at: Instant,
     #[serde(skip)]
@@ -65,9 +176,14 @@ struct Core {
     /// rule id → when its allowance ran out (to say "time's up" instead of a plain pause)
     expired: HashMap<String, Instant>,
     intercept: Option<Intercept>,
+    /// rule id → when a finished pause was dismissed by switching tab or app (and its prompt),
+    /// so coming back within `WAITED_GRACE` doesn't make the user wait again
+    waited: HashMap<String, (Instant, Option<Prompt>)>,
     /// after "go back", don't re-trigger for a moment while the tab navigates away
     cooldown: HashMap<String, Instant>,
     last_target: Option<Target>,
+    /// what the previous pause said (`Prompt::memo`), so the next one doesn't repeat it
+    last_prompt: Option<String>,
     /// bundle id → "ok" | "denied" | "error"
     browser_status: HashMap<String, &'static str>,
     data_dir: PathBuf,
@@ -186,10 +302,12 @@ fn monitor(app: AppHandle, core: Shared, runner: Arc<MainRunner>) {
     let own_pid = std::process::id() as i32;
     let mut ax = AxState::default();
     let mut last = Instant::now();
+    let mut tray = TrayView::default();
     loop {
         std::thread::sleep(TICK);
         let dt = last.elapsed().min(Duration::from_secs(3));
         last = Instant::now();
+        refresh_tray(&app, &core, &mut tray);
 
         let overlay_up = core.lock().unwrap().intercept.is_some();
         let front = macos::frontmost();
@@ -209,7 +327,7 @@ fn monitor(app: AppHandle, core: Shared, runner: Arc<MainRunner>) {
 
         let Some((target, focused)) = target else {
             if overlay_up {
-                core.lock().unwrap().intercept = None;
+                dismiss_intercept(&mut core.lock().unwrap());
                 overlay_hide(&app);
             }
             maybe_save_stats(&core);
@@ -252,6 +370,27 @@ fn maybe_save_stats(core: &Shared) {
     }
 }
 
+/// Should dismissing an intercept (focus or URL moved on) be remembered? Only a pause that
+/// could be continued and has already run its course: an unfinished one starts over.
+fn should_remember(reason: Reason, shown_for: Duration, pause_seconds: u32) -> bool {
+    reason.can_continue() && shown_for >= Duration::from_secs(pause_seconds as u64)
+}
+
+/// Is a remembered finished pause still good for a new intercept with this reason?
+fn waited_applies(reason: Reason, age: Duration) -> bool {
+    reason.can_continue() && age < WAITED_GRACE
+}
+
+/// Drop the current intercept because the user moved on without choosing continue or back.
+/// Returns whether there was one (i.e. whether the overlay needs hiding).
+fn dismiss_intercept(c: &mut Core) -> bool {
+    let Some(i) = c.intercept.take() else { return false };
+    if should_remember(i.reason, i.shown_at.elapsed(), i.pause_seconds) {
+        c.waited.insert(i.rule_id, (Instant::now(), i.prompt));
+    }
+    true
+}
+
 fn decide(c: &mut Core, target: &Target, focused: bool, url: Option<&str>, dt: Duration) -> UiAction {
     let now = Instant::now();
     let lapsed: Vec<String> = c.allowances.iter().filter(|(_, &t)| t <= now).map(|(k, _)| k.clone()).collect();
@@ -261,13 +400,14 @@ fn decide(c: &mut Core, target: &Target, focused: bool, url: Option<&str>, dt: D
     }
     c.expired.retain(|_, t| t.elapsed() < Duration::from_secs(60));
     c.cooldown.retain(|_, t| *t > now);
+    c.waited.retain(|_, (t, _)| t.elapsed() < WAITED_GRACE);
 
     let local = Local::now();
     let verdict = url.and_then(|u| {
         rules::evaluate(&c.config, &c.stats, &local, u, &|id| c.allowances.contains_key(id))
     });
     let Some(v) = verdict else {
-        return if c.intercept.take().is_some() { UiAction::Hide } else { UiAction::None };
+        return if dismiss_intercept(c) { UiAction::Hide } else { UiAction::None };
     };
     let rule = c.config.rules[v.rule_index].clone();
     let today = rules::date_key(&local);
@@ -278,7 +418,7 @@ fn decide(c: &mut Core, target: &Target, focused: bool, url: Option<&str>, dt: D
             c.stats.day_mut(&today, &rule.id).seconds += dt.as_secs_f64().round() as u64;
             c.stats_dirty = true;
         }
-        return if c.intercept.take().is_some() { UiAction::Hide } else { UiAction::None };
+        return if dismiss_intercept(c) { UiAction::Hide } else { UiAction::None };
     };
 
     if c.intercept.as_ref().is_some_and(|i| i.rule_id == rule.id) || c.cooldown.contains_key(&rule.id) {
@@ -301,23 +441,67 @@ fn decide(c: &mut Core, target: &Target, focused: bool, url: Option<&str>, dt: D
         Reason::OpenLimit | Reason::TimeLimit => Some("tomorrow".into()),
         _ => None,
     };
+    let site = rules::host_of(url.unwrap_or_default());
     let mut options: Vec<u32> = c.config.settings.session_options.iter().copied().filter(|&m| m > 0).collect();
     options.sort_unstable();
     options.dedup();
     options.truncate(4);
+    // A pause the user already sat through, shortly ago: same prompt, nothing left to wait for.
+    let waited = c
+        .waited
+        .get(&rule.id)
+        .is_some_and(|(t, _)| waited_applies(reason, t.elapsed()))
+        .then(|| c.waited.remove(&rule.id))
+        .flatten();
+    // switching straight from another rule's site: that intercept is dismissed like any other
+    dismiss_intercept(c);
+    let pause_seconds = rule.pause_seconds.clamp(1, 600);
+    let prompt = if let Some((_, p)) = &waited {
+        p.clone()
+    } else {
+        let prompt = reason.can_continue().then(|| {
+            let ctx = prompts::Ctx {
+                site: &site,
+                hour: local.hour(),
+                opens_today: day.opens,
+                minutes_today: day.seconds / 60,
+                longest_session: c.config.settings.session_options.iter().copied().max().unwrap_or(15),
+            };
+            let seed = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |d| d.as_nanos() as u64);
+            prompts::pick(&rule.prompts, &ctx, c.last_prompt.as_deref(), seed)
+        });
+        if let Some(p) = &prompt {
+            c.last_prompt = Some(p.memo());
+        }
+        prompt
+    };
+    // Backdated so `overlay_continue` sees a finished pause (if the clock can't go back that far,
+    // the pause just runs again on the Rust side).
+    let shown_at = if waited.is_some() {
+        now.checked_sub(Duration::from_secs(pause_seconds as u64)).unwrap_or(now)
+    } else {
+        now
+    };
     let i = Intercept {
         rule_id: rule.id.clone(),
         rule_name: rule.name.clone(),
-        site: rules::host_of(url.unwrap_or_default()),
+        site,
         reason,
-        pause_seconds: rule.pause_seconds.clamp(1, 600),
+        pause_seconds,
+        countdown: rule.countdown,
+        prompt,
         opens_today: day.opens,
         minutes_today: day.seconds / 60,
         daily_opens: rule.daily_opens,
         daily_minutes: rule.daily_minutes,
         session_options: options,
         until,
-        shown_at: now,
+        sky: c.config.settings.sky.clone(),
+        weather: if c.config.settings.weather { weather::current() } else { None },
+        waited: waited.is_some(),
+        shown_at,
         target: target.clone(),
     };
     c.intercept = Some(i.clone());
@@ -331,8 +515,20 @@ async fn overlay_state(core: State<'_, Shared>) -> Result<Option<Intercept>, Str
     Ok(core.lock().unwrap().intercept.clone())
 }
 
+/// The weather outside for the sky, or nothing when the setting is off or there is no recent reading.
 #[tauri::command]
-async fn overlay_continue(app: AppHandle, core: State<'_, Shared>, minutes: u32) -> Result<(), String> {
+async fn weather_now(core: State<'_, Shared>) -> Result<Option<weather::Weather>, String> {
+    let on = core.lock().unwrap().config.settings.weather;
+    Ok(if on { weather::current() } else { None })
+}
+
+#[tauri::command]
+async fn overlay_continue(
+    app: AppHandle,
+    core: State<'_, Shared>,
+    minutes: u32,
+    typed: Option<String>,
+) -> Result<(), String> {
     let pid = {
         let mut c = core.lock().unwrap();
         let i = c.intercept.as_ref().ok_or("no pause in progress")?;
@@ -342,10 +538,16 @@ async fn overlay_continue(app: AppHandle, core: State<'_, Shared>, minutes: u32)
         if i.shown_at.elapsed().as_secs_f64() + 0.5 < i.pause_seconds as f64 {
             return Err("the pause isn't over yet".into());
         }
+        if let Some(p) = &i.prompt {
+            if !prompts::unlocks(p, &typed.unwrap_or_default()) {
+                return Err("Type the sentence exactly as shown to unlock.".into());
+            }
+        }
         let i = c.intercept.take().unwrap();
         let minutes = minutes.clamp(1, 240);
         c.allowances.insert(i.rule_id.clone(), Instant::now() + Duration::from_secs(minutes as u64 * 60));
         c.expired.remove(&i.rule_id);
+        c.waited.remove(&i.rule_id);
         c.stats.day_mut(&rules::date_key(&Local::now()), &i.rule_id).opens += 1;
         c.save_stats();
         log(format!("continue {} for {minutes} min", i.site));
@@ -354,6 +556,14 @@ async fn overlay_continue(app: AppHandle, core: State<'_, Shared>, minutes: u32)
     overlay_hide(&app);
     macos::activate(pid);
     Ok(())
+}
+
+/// Cmd+W in the dashboard: its close button only hides it too.
+#[tauri::command]
+fn close_main(app: AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.hide();
+    }
 }
 
 #[tauri::command]
@@ -366,6 +576,7 @@ async fn overlay_back(app: AppHandle, core: State<'_, Shared>, runner: State<'_,
             c.save_stats();
         }
         c.expired.remove(&i.rule_id);
+        c.waited.remove(&i.rule_id);
         c.cooldown.insert(i.rule_id.clone(), Instant::now() + Duration::from_secs(3));
         log(format!("back from {}", i.site));
         (i.target, format!("{}#{}", c.calm_url(), i.site))
@@ -459,6 +670,9 @@ async fn save_config(core: State<'_, Shared>, mut config: Config) -> Result<Conf
     if config.settings.session_options.is_empty() {
         config.settings.session_options = rules::Settings::default().session_options;
     }
+    if !["time", "light", "dark"].contains(&config.settings.sky.as_str()) {
+        config.settings.sky = "time".into();
+    }
     let mut c = core.lock().unwrap();
     let ids: Vec<String> = config.rules.iter().map(|r| r.id.clone()).collect();
     c.allowances.retain(|k, _| ids.contains(k));
@@ -533,11 +747,39 @@ fn data_dir(app: &AppHandle) -> PathBuf {
 
 pub fn run() {
     tauri::Builder::default()
+        // Tauri's default macOS menu binds Cmd+W (Close Window) and Cmd+H (Hide), which AppKit
+        // handles before the page sees the key. The overlay needs Cmd+W as "close the tab", so the
+        // menu is just Quit and Edit; Edit is kept because Cmd+A/C/X/Z in the text fields run
+        // through it.
+        .menu(|app| {
+            Menu::with_items(
+                app,
+                &[
+                    &Submenu::with_items(app, "Defixum", true, &[&PredefinedMenuItem::quit(app, None)?])?,
+                    &Submenu::with_items(
+                        app,
+                        "Edit",
+                        true,
+                        &[
+                            &PredefinedMenuItem::undo(app, None)?,
+                            &PredefinedMenuItem::redo(app, None)?,
+                            &PredefinedMenuItem::separator(app)?,
+                            &PredefinedMenuItem::cut(app, None)?,
+                            &PredefinedMenuItem::copy(app, None)?,
+                            &PredefinedMenuItem::paste(app, None)?,
+                            &PredefinedMenuItem::select_all(app, None)?,
+                        ],
+                    )?,
+                ],
+            )
+        })
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         .invoke_handler(tauri::generate_handler![
             overlay_state,
+            weather_now,
             overlay_continue,
             overlay_back,
+            close_main,
             get_state,
             save_config,
             set_autostart,
@@ -562,8 +804,10 @@ pub fn run() {
                 allowances: HashMap::new(),
                 expired: HashMap::new(),
                 intercept: None,
+                waited: HashMap::new(),
                 cooldown: HashMap::new(),
                 last_target: None,
+                last_prompt: None,
                 browser_status: HashMap::new(),
                 data_dir: dir.clone(),
             };
@@ -595,6 +839,18 @@ pub fn run() {
                 .effects(EffectsBuilder::new().effect(Effect::HudWindow).state(EffectState::Active).build())
                 .build()?;
             raise_overlay(&overlay);
+            // The overlay is reused, never closed. If something still asks to close it (a stray
+            // performClose), that counts as "close the tab", same as Esc.
+            let overlay_app = handle.clone();
+            overlay.on_window_event(move |e| {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = e {
+                    api.prevent_close();
+                    let app = overlay_app.clone();
+                    tauri::async_runtime::spawn(async move {
+                        let _ = overlay_back(app.clone(), app.state(), app.state()).await;
+                    });
+                }
+            });
 
             let main = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                 .title("Defixum")
@@ -612,10 +868,8 @@ pub fn run() {
                 }
             });
 
-            // Menu bar
-            let open_item = MenuItem::with_id(app, "open", "Open Defixum…", true, None::<&str>)?;
-            let quit_item = MenuItem::with_id(app, "quit", "Quit Defixum", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&open_item, &PredefinedMenuItem::separator(app)?, &quit_item])?;
+            // Menu bar (the monitor keeps its title and unlock list current)
+            let (menu, _) = tray_menu(app.handle(), &[])?;
             TrayIconBuilder::with_id("tray")
                 .icon(tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))?)
                 .icon_as_template(true)
@@ -635,7 +889,16 @@ pub fn run() {
                 .build(app)?;
 
             log(format!("started; data in {}", dir.display()));
+            let weather_core = shared.clone();
             std::thread::spawn(move || monitor(handle, shared, runner));
+            // keeps a recent weather reading while the setting is on; checks twice a minute so
+            // turning it on, or waking from sleep, catches up quickly
+            std::thread::spawn(move || loop {
+                if weather_core.lock().unwrap().config.settings.weather {
+                    weather::refresh_if_due();
+                }
+                std::thread::sleep(Duration::from_secs(30));
+            });
             Ok(())
         })
         .build(tauri::generate_context!())
@@ -675,5 +938,53 @@ pub fn probe(seconds: u32, bundle: Option<String>) {
         let started = Instant::now();
         let r = browser::fetch(&t, &mut ax, direct.as_ref());
         println!("{} [{:?}] {:?} ({:.1} ms)", k.name, k.kind, r, started.elapsed().as_secs_f64() * 1000.0);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SECS: fn(u64) -> Duration = Duration::from_secs;
+
+    #[test]
+    fn menu_bar_time_rounds_up_to_minutes() {
+        assert_eq!(short_left(Duration::from_millis(400)), "1s");
+        assert_eq!(short_left(SECS(45)), "45s");
+        assert_eq!(short_left(Duration::from_millis(59_200)), "1m");
+        assert_eq!(short_left(SECS(60)), "1m");
+        assert_eq!(short_left(SECS(61)), "2m");
+        assert_eq!(short_left(SECS(13 * 60)), "13m");
+        assert_eq!(short_left(SECS(60 * 60)), "1h");
+        assert_eq!(short_left(SECS(60 * 60 + 1)), "1h 1m");
+        assert_eq!(short_left(SECS(150 * 60)), "2h 30m");
+    }
+
+    #[test]
+    fn unfinished_pause_is_not_remembered() {
+        assert!(!should_remember(Reason::Pause, SECS(14), 15));
+        assert!(!should_remember(Reason::Pause, Duration::ZERO, 15));
+    }
+
+    #[test]
+    fn finished_pause_is_remembered() {
+        assert!(should_remember(Reason::Pause, SECS(15), 15));
+        assert!(should_remember(Reason::Expired, SECS(40), 15));
+    }
+
+    #[test]
+    fn remembered_pause_expires_after_the_grace() {
+        assert!(waited_applies(Reason::Pause, SECS(0)));
+        assert!(waited_applies(Reason::Expired, WAITED_GRACE - SECS(1)));
+        assert!(!waited_applies(Reason::Pause, WAITED_GRACE));
+        assert!(!waited_applies(Reason::Pause, WAITED_GRACE + SECS(1)));
+    }
+
+    #[test]
+    fn blocks_and_limits_ignore_waiting() {
+        for r in [Reason::Blocked, Reason::OpenLimit, Reason::TimeLimit] {
+            assert!(!should_remember(r, SECS(600), 15));
+            assert!(!waited_applies(r, SECS(1)));
+        }
     }
 }

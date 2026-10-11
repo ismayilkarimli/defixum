@@ -6,66 +6,272 @@
 <title>Defixum pause</title>
 <style>
   :root {
-    --glow: #f6dcc8;
-    --glow-soft: rgba(246, 220, 200, 0.28);
-    --text: #f4f1f8;
-    --muted: rgba(236, 232, 246, 0.66);
-    --iris: #8f8cf0;
-    --amber: #e5b25c;
-    --chip: rgba(255, 255, 255, 0.09);
-    --chip-hover: rgba(255, 255, 255, 0.17);
+    /* Sky and tree colours are set from the clock by paint(); these are a daytime fallback. */
+    --sky-top: #a5c0bf;
+    --horizon: #dfe8de;
+    --near: #0a1c15;
+    --stars: 0;
+
+    /* in the sky (daylight) */
+    --ink: #10221a;
+    --muted: #24362c;
+    --site: #2a6644;
+    --mark: #2b5a42;
+    --bloom: rgba(255, 255, 248, 0.75);
+    /* the sun or moon the countdown sits on */
+    --body-hi: #fffef7;
+    --body: #f5f4e7;
+    --body-edge: #e4e9da;
+    --body-glow: rgba(255, 252, 236, 0.7);
+    --amber: #8a520f;
+    --field: rgba(255, 255, 255, 0.5);
+    --field-line: rgba(16, 34, 26, 0.2);
+    --lift: 0 0 22px rgba(236, 242, 232, 0.55);
+
+    /* on the forest floor, which is always dark */
+    --floor-ink: #e6eee3;
+    --floor-muted: rgba(230, 238, 227, 0.62);
+    --lichen: #dbe7c9;
+    --chip: rgba(230, 238, 227, 0.1);
+    --chip-hover: rgba(230, 238, 227, 0.19);
+
+    --display: Optima, "Optima Nova", Candara, "Segoe UI", sans-serif;
+    --floor: clamp(170px, 21vh, 230px);
     --ring: 300px;
+    /* One vertical rhythm: the visible gap between every pair of stacked blocks (ring, headline,
+       sentence, answer box, detail). Text blocks and the ring give back their empty edges with
+       negative margins, so the gap is measured between what you can see. */
+    --gap: 40px;
+    /* half-leading (line-height minus the glyph box, halved) of each text block, in em */
+    --trim-h1: 0.05;
+    --trim-sentence: 0.1;
+    --trim-detail: 0.15;
+  }
+  :root.night {
+    --ink: #e8f0e5;
+    --muted: #cfdacb;
+    --site: #cfe2a4;
+    --mark: #e3ecd7;
+    --bloom: rgba(226, 238, 214, 0.16);
+    --body-hi: #f1f5e8;
+    --body: #dbe3cf;
+    --body-edge: #c3cfb9;
+    --body-glow: rgba(220, 232, 205, 0.3);
+    --amber: #e8b866;
+    --field: rgba(255, 255, 255, 0.07);
+    --field-line: rgba(255, 255, 255, 0.17);
+    --lift: 0 1px 14px rgba(0, 8, 6, 0.45);
   }
   * { box-sizing: border-box; margin: 0; }
   html, body {
     height: 100%;
-    background: transparent;
-    color: var(--text);
+    color: var(--ink);
     font: 15px/1.5 -apple-system, system-ui, sans-serif;
-    -webkit-font-smoothing: antialiased;
     user-select: none;
     cursor: default;
     overflow: hidden;
   }
-  body {
-    /* tint the system blur toward dusk */
-    background: radial-gradient(120% 90% at 50% 38%, rgba(54, 48, 96, 0.55), rgba(16, 15, 34, 0.82) 70%);
-    display: grid;
-    place-items: center;
+  html { background: var(--near); }
+  /* light text on dark grounds renders too heavy with macOS stem darkening; dark text keeps it */
+  .night body, .floor { -webkit-font-smoothing: antialiased; }
+  ::selection { background: color-mix(in srgb, var(--site) 30%, transparent); }
+
+  /* ---------- the forest ---------- */
+  .scene {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(to bottom, var(--sky-top), var(--horizon) 68%);
+    overflow: hidden;
   }
+  .stars { position: absolute; inset: 0 0 40% 0; width: 100%; height: 60%; opacity: var(--stars); }
+  .stars circle { fill: #eef3e6; }
+  .stars .tw { animation: twinkle var(--tw) ease-in-out var(--twd) infinite alternate; }
+  @keyframes twinkle { to { opacity: 0.12; } }
+  /* the Milky Way: a faint tilted haze the denser stars gather along */
+  .milky {
+    position: absolute;
+    left: -25%;
+    width: 150%;
+    height: 56%;
+    top: var(--milky-y, 0%);
+    transform: rotate(var(--milky-tilt, -16deg));
+    filter: blur(6px);
+    background: radial-gradient(ellipse 22% 24% at 30% 52%, rgba(214, 228, 218, 0.07), transparent 72%),
+      radial-gradient(ellipse 26% 30% at 52% 48%, rgba(222, 232, 222, 0.085), transparent 72%),
+      radial-gradient(ellipse 20% 22% at 72% 54%, rgba(214, 228, 218, 0.06), transparent 72%),
+      radial-gradient(ellipse 60% 34% at 50% 50%, rgba(200, 218, 206, 0.05), transparent 75%);
+    opacity: var(--stars);
+  }
+  .meteor {
+    position: absolute;
+    width: 150px;
+    height: 1.5px;
+    border-radius: 1px;
+    background: linear-gradient(to right, transparent, rgba(244, 248, 236, 0.95));
+    transform-origin: right center;
+    opacity: 0;
+    animation: meteor 1.2s cubic-bezier(0.3, 0.6, 0.5, 1) forwards;
+  }
+  @keyframes meteor {
+    0% { opacity: 0; transform: rotate(var(--a)) translateX(0); }
+    12% { opacity: 1; }
+    100% { opacity: 0; transform: rotate(var(--a)) translateX(var(--len)); }
+  }
+
+  /* clouds: soft puffs drifting across the daytime sky, tinted by the horizon (warm at sunset) */
+  .clouds { position: absolute; inset: 0; pointer-events: none; opacity: calc(1 - var(--stars)); }
+  .cloud {
+    position: absolute;
+    left: 0;
+    width: var(--w);
+    height: calc(var(--w) * 0.3);
+    --cloud: color-mix(in srgb, var(--cloud-base, #fff) calc(var(--a, 55%) * var(--cloud-dim, 1)), transparent);
+    animation: cloud var(--t) linear var(--d) infinite;
+  }
+  .cloud i { position: absolute; border-radius: 50%; background: radial-gradient(closest-side, var(--cloud), transparent); }
+  /* under a full sky the puffs merge into a deck of cloud pressing down from the top */
+  .deck {
+    position: absolute;
+    inset: 0 0 35% 0;
+    background: linear-gradient(to bottom, color-mix(in srgb, var(--cloud-base, #fff) 70%, transparent), color-mix(in srgb, var(--cloud-base, #fff) 30%, transparent) 55%, transparent);
+    opacity: var(--deck, 0);
+  }
+  @keyframes cloud { from { transform: translateX(calc(-1 * var(--w))); } to { transform: translateX(100vw); } }
+
+  /* birds: small flocks crossing in daylight, each bird flapping and gliding on its own beat */
+  .birds { position: absolute; inset: 0; pointer-events: none; }
+  .flock { position: absolute; left: 0; top: var(--y); animation: fly var(--t) linear var(--d) forwards; }
+  @keyframes fly { from { transform: translateX(var(--x0)); } to { transform: translateX(var(--x1)); } }
+  .flock svg { display: block; overflow: visible; animation: bob var(--bt) ease-in-out infinite alternate; }
+  @keyframes bob { to { transform: translateY(var(--bob)); } }
+  .flock path { fill: none; stroke: var(--bird); stroke-linecap: round; stroke-linejoin: round; }
+
+  /* fireflies at night and motes of light at golden hour, hovering among the near trees */
+  .glimmers { position: absolute; inset: 0; pointer-events: none; }
+  /* no fireflies in rain or snow, and no motes of sunlight when cloud hides the sun */
+  .glimmers.fireflies { opacity: calc(var(--stars) * var(--dry, 1)); }
+  .glimmers.motes { opacity: var(--golden, 0); }
+  .glimmers b {
+    position: absolute;
+    width: var(--s);
+    height: var(--s);
+    border-radius: 50%;
+    animation: wander var(--t) ease-in-out var(--d) infinite alternate, glow var(--g) ease-in-out var(--d) infinite;
+  }
+  .fireflies b { background: #f1ffae; box-shadow: 0 0 7px 2px rgba(214, 255, 130, 0.55); }
+  .motes b { background: #fff4d6; box-shadow: 0 0 6px 1px rgba(255, 230, 170, 0.5); }
+  @keyframes wander {
+    0% { transform: translate(0, 0); }
+    35% { transform: translate(var(--x1), var(--y1)); }
+    70% { transform: translate(var(--x2), var(--y2)); }
+    100% { transform: translate(var(--x3), var(--y3)); }
+  }
+  @keyframes glow { 0%, 100% { opacity: 0.08; } 45%, 60% { opacity: 1; } }
+  .layer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transform: translateY(calc(var(--depth) * 1.6vh));
+    opacity: 0;
+    transition: transform 1600ms cubic-bezier(0.16, 1, 0.3, 1), opacity 1100ms ease-out;
+    transition-delay: calc(var(--i) * 90ms);
+  }
+  .layer path { fill: var(--fill); }
+  body.in .layer { transform: none; opacity: 1; }
+  /* Fog pooled at the foot of each far tree line: soft clouds over a faint band. */
+  .mists { position: absolute; inset: 0; pointer-events: none; }
+  .mist {
+    position: absolute;
+    left: -15%;
+    width: 130%;
+    --fog: color-mix(in srgb, var(--horizon) 70%, transparent);
+    background:
+      radial-gradient(ellipse 22% 46% at 14% 55%, var(--fog), transparent 72%),
+      radial-gradient(ellipse 26% 40% at 43% 62%, var(--fog), transparent 72%),
+      radial-gradient(ellipse 20% 50% at 70% 50%, var(--fog), transparent 72%),
+      radial-gradient(ellipse 24% 44% at 93% 60%, var(--fog), transparent 72%),
+      linear-gradient(to bottom, transparent, color-mix(in srgb, var(--horizon) 38%, transparent) 55%, transparent);
+    animation: drift var(--drift, 90s) ease-in-out infinite alternate;
+  }
+  @keyframes drift { from { transform: translateX(-4%); } to { transform: translateX(4%); } }
+  /* While breathing, the fog lifts on the in-breath and settles on the out-breath. */
+  body.breathing .mists { animation: lift 8s ease-in-out infinite; }
+  @keyframes lift { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2.2vh); } }
+
+  /* weather: rain or snow falling in front of the trees, lightning behind them */
+  .precip { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .flash {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse 70% 60% at var(--fx) 0%, rgba(236, 242, 255, 0.95), rgba(220, 230, 250, 0.35) 55%, transparent 80%);
+    opacity: 0;
+    animation: flash 0.9s ease-out forwards;
+  }
+  /* two soft pulses, well under three flashes a second */
+  @keyframes flash {
+    0% { opacity: 0; }
+    6% { opacity: var(--peak); }
+    18% { opacity: 0.04; }
+    34% { opacity: calc(var(--peak) * 0.7); }
+    100% { opacity: 0; }
+  }
+
+  /* ---------- the sky: countdown and words ---------- */
   main {
+    position: fixed;
+    inset: 0 0 var(--floor) 0;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
+    gap: var(--gap);
     text-align: center;
-    max-width: 40rem;
-    padding: 2rem 1.5rem;
+    padding: 2rem 1.5rem 15vh;
     opacity: 0;
-    transition: opacity 400ms ease;
+    transition: opacity 700ms ease 250ms;
   }
-  main.in { opacity: 1; }
+  body.in main { opacity: 1; }
+  /* haze behind the words, light by day and dark by night, strongest at dawn and dusk */
+  main::before {
+    content: "";
+    position: absolute;
+    inset: 0 6%;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(ellipse 46% 44% at 50% 52%, var(--scrim, transparent), transparent 75%);
+  }
+  main.typing { padding-bottom: 21vh; }
 
   .breath {
     position: relative;
     width: var(--ring);
     height: var(--ring);
+    flex: none;
     display: grid;
     place-items: center;
-    margin-bottom: 2.25rem;
+    /* The box is bigger than the circle, so pull the neighbours in to the circle's edge. At rest the
+       breathing circle spans 51.2% of the box (24.4% in from each edge); it swells into the gap and
+       back while breathing. */
+    margin: calc(var(--ring) * -0.244) 0;
   }
   .halo, .core {
     position: absolute;
     inset: 0;
     border-radius: 50%;
   }
+  /* sun through haze by day, moon by night */
+  /* under heavy cloud the sun is a pale disc without much glow */
   .halo {
-    background: radial-gradient(circle, var(--glow-soft) 0%, rgba(246, 220, 200, 0) 68%);
+    background: radial-gradient(circle, color-mix(in srgb, var(--bloom) calc(100% - var(--gloom, 0) * 75%), transparent) 0%, transparent 68%);
     transform: scale(0.72);
   }
   .core {
     inset: 18%;
-    border: 3px solid var(--glow);
-    box-shadow: 0 0 40px rgba(246, 220, 200, 0.25), inset 0 0 30px rgba(246, 220, 200, 0.12);
+    background: radial-gradient(circle at 46% 42%, var(--body-hi), var(--body) 58%, var(--body-edge));
+    --glow: color-mix(in srgb, var(--body-glow) calc(100% - var(--gloom, 0) * 70%), transparent);
+    box-shadow: 0 0 70px var(--glow), 0 0 18px var(--glow);
     transform: scale(0.62);
   }
   .breathing .halo { animation: halo 8s ease-in-out infinite; }
@@ -74,8 +280,32 @@
   @keyframes halo { 0%, 100% { transform: scale(0.72); opacity: .6; } 50% { transform: scale(1.12); opacity: 1; } }
   .settled .core { transform: scale(0.8); transition: transform 900ms ease; }
   .settled .halo { transform: scale(0.9); transition: transform 900ms ease; }
-  .stopped .core { border-color: var(--amber); box-shadow: 0 0 40px rgba(229, 178, 92, 0.22); transform: scale(0.8); }
-  .stopped .halo { background: radial-gradient(circle, rgba(229, 178, 92, 0.18) 0%, rgba(229, 178, 92, 0) 68%); transform: scale(0.9); }
+  /* blocked: a low amber sun */
+  .stopped { --body-hi: #fbe3b4; --body: #ecb873; --body-edge: #d99a50; --body-glow: rgba(236, 184, 115, 0.45); }
+  .stopped .core { transform: scale(0.8); }
+  .stopped .halo { transform: scale(0.9); }
+
+  /* fill / drain: a progress ring where the breathing circle would be */
+  .ring {
+    display: none;
+    position: absolute;
+    left: 18%;
+    top: 18%;
+    width: 64%;
+    height: 64%;
+    transform: rotate(-90deg); /* the arc starts at 12 o'clock */
+    overflow: visible;
+  }
+  .ring circle { fill: none; stroke-width: 1.4; }
+  .ring .track { stroke: color-mix(in srgb, var(--mark) 22%, transparent); }
+  .ring .arc { stroke: var(--mark); stroke-linecap: round; }
+  .breath.is-ring { margin-block: calc(var(--ring) * -0.186); } /* the progress ring's outer edge */
+  .is-ring .ring { display: block; }
+  .is-ring .core { transform: scale(0.84); }
+  .is-ring .halo { transform: scale(0.9); opacity: 0.55; }
+  .is-ring .cue { display: none; }
+  .is-ring.settled .track { stroke: color-mix(in srgb, var(--mark) 40%, transparent); transition: stroke 900ms ease; }
+  .is-ring.settled .arc { opacity: 0.55; transition: opacity 900ms ease; }
 
   .readout {
     position: relative;
@@ -84,44 +314,122 @@
     align-items: center;
     gap: 4px;
   }
+  /* numbers and cue sit on the sun or moon, so they are always dark */
   .count {
-    font-family: ui-rounded, -apple-system, system-ui, sans-serif;
+    color: #13251c;
+    font-family: var(--display);
     font-size: 64px;
-    font-weight: 300;
     font-variant-numeric: tabular-nums;
     line-height: 1;
-    letter-spacing: -0.02em;
   }
   .cue {
-    font-size: 12px;
+    font-size: 14px;
     min-height: 1.5em;
-    color: var(--muted);
+    color: rgba(19, 37, 28, 0.72);
     transition: opacity 600ms ease;
   }
 
   h1 {
-    font-family: ui-serif, "New York", Georgia, serif;
+    font-family: var(--display);
     font-weight: 400;
-    font-size: 34px;
-    line-height: 1.2;
-    letter-spacing: -0.01em;
+    font-size: 36px;
+    line-height: 1.18;
+    max-width: 20em;
     text-wrap: balance;
+    text-shadow: var(--lift);
+    margin-block: calc(var(--trim-h1) * -1em);
   }
-  .site { color: var(--glow); }
+  .site { color: var(--site); }
   .detail {
-    margin-top: 0.75rem;
+    margin-block: calc(var(--trim-detail) * -1em);
     color: var(--muted);
     font-size: 15px;
     max-width: 32rem;
     text-wrap: pretty;
+    text-shadow: var(--lift);
   }
   .detail .over { color: var(--amber); }
 
-  .actions {
-    margin-top: 2.25rem;
+  .commit {
+    position: relative; /* anchors the unlock hint */
+    width: min(34rem, 100%);
     display: flex;
     flex-direction: column;
-    gap: 1.1rem;
+    gap: var(--gap);
+  }
+  .commit[hidden] { display: none; }
+  .sentence {
+    font-family: var(--display);
+    font-size: 22px;
+    line-height: 1.35;
+    text-wrap: balance;
+    text-shadow: var(--lift);
+    margin-block: calc(var(--trim-sentence) * -1em);
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .sentence::before { content: "\201C"; }
+  .sentence::after { content: "\201D"; }
+  textarea {
+    font: inherit;
+    font-size: 16px;
+    color: var(--ink);
+    caret-color: var(--site);
+    text-align: center;
+    width: 100%;
+    resize: none;
+    overflow: hidden;
+    background: var(--field);
+    border: 1px solid var(--field-line);
+    border-radius: 14px;
+    padding: 0.75rem 1rem;
+    cursor: text;
+    -webkit-user-select: text;
+    user-select: text;
+    transition: border-color 300ms ease, background 300ms ease, opacity 300ms ease;
+  }
+  textarea::placeholder { color: var(--muted); }
+  textarea:focus-visible { outline: 2px solid var(--mark); outline-offset: 3px; }
+  textarea:disabled { opacity: 0.6; cursor: default; }
+  textarea.ok { border-color: var(--site); box-shadow: inset 0 0 0 1px var(--site); }
+  /* Floats in the middle of the gap under the answer box, so it takes no room of its own: an
+     empty hint costs nothing and a filled one moves nothing. */
+  .unlock-hint {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin: calc((var(--gap) - 1.5em) / 2) 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--muted);
+    transition: color 200ms ease;
+  }
+  .unlock-hint.ready { color: var(--site); }
+  .unlock-hint.nudge { animation: nudge 360ms ease; color: var(--ink); }
+  @keyframes nudge { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+
+  /* ---------- the forest floor: the choices ---------- */
+  .floor {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: var(--floor);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding-bottom: 2.25rem;
+    color: var(--floor-ink);
+    opacity: 0;
+    transition: opacity 700ms ease 450ms;
+  }
+  body.in .floor { opacity: 1; }
+  .actions {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
     align-items: center;
   }
   button {
@@ -129,60 +437,109 @@
     color: inherit;
     border: 0;
     border-radius: 999px;
-    padding: 0.7rem 1.3rem;
+    padding: 0.7rem 1.4rem;
     cursor: pointer;
     transition: background 150ms ease, transform 150ms ease, opacity 300ms ease;
   }
-  button:focus-visible { outline: 2px solid var(--iris); outline-offset: 3px; }
+  button:focus-visible { outline: 2px solid var(--lichen); outline-offset: 3px; }
   button:active { transform: scale(0.97); }
   .primary {
-    background: var(--glow);
-    color: #241f3d;
+    background: var(--lichen);
+    color: #0e1e16;
     font-weight: 600;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
   }
-  .primary:hover { background: #fff0e4; }
+  .primary:hover { background: #edf4e1; }
   .later {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 0.4rem;
     align-items: center;
-    color: var(--muted);
+    color: var(--floor-muted);
     font-size: 14px;
     transition: opacity 500ms ease;
   }
-  .later { flex-wrap: wrap; justify-content: center; min-height: 38px; }
   .later span { margin-right: 0.35rem; }
   .later button {
     background: var(--chip);
-    padding: 0.55rem 0.95rem;
+    padding: 0.5rem 0.95rem;
     font-size: 14px;
-    color: var(--text);
+    color: var(--floor-ink);
+    font-variant-numeric: tabular-nums;
   }
   .later button:hover { background: var(--chip-hover); }
-  .later[hidden] { visibility: hidden; }
-  .waiting .later { opacity: 0; pointer-events: none; }
-  .error { margin-top: 1rem; font-size: 13px; color: var(--amber); min-height: 1.2em; }
-  .hint { position: fixed; bottom: 2rem; left: 0; right: 0; text-align: center; font-size: 12px; color: rgba(236, 232, 246, 0.4); }
+  .later button:disabled { opacity: 0.35; cursor: default; }
+  .later button:disabled:hover { background: var(--chip); }
+  .later[hidden] { display: none; }
+  /* invisible during the countdown, but keeping its room so nothing moves when it appears */
+  body.waiting .later { opacity: 0; pointer-events: none; }
+  /* An error takes the footer hint's place rather than a line of its own. */
+  .error, .hint { position: absolute; bottom: 1.4rem; left: 0; right: 0; text-align: center; font-size: 12px; }
+  .error { font-size: 13px; color: #f0c27a; }
+  .error:not(:empty) + .hint { visibility: hidden; }
+  .hint { color: var(--floor-muted); font-size: 13px; }
 
-  @media (max-height: 700px) { :root { --ring: 220px; } h1 { font-size: 28px; } }
+  @media (max-height: 860px) {
+    :root { --gap: 32px; }
+    main { padding-bottom: 11vh; }
+    main.typing { padding-bottom: 15vh; }
+  }
+  /* typing stacks the most text, so its countdown shrinks sooner */
+  @media (max-height: 920px) {
+    main.typing { --ring: 190px; --gap: 28px; }
+    main.typing .count { font-size: 50px; }
+  }
+  @media (max-height: 720px) { :root { --ring: 220px; --trim-h1: 0.04; } h1 { font-size: 29px; } }
   @media (prefers-reduced-motion: reduce) {
-    .breathing .halo, .breathing .core { animation: none; }
+    .birds, .meteor, .flash { display: none; }
+    .cloud, .glimmers b, .stars .tw { animation: none; }
+    .cloud { transform: translateX(var(--rest)); }
+    .breathing .halo, .breathing .core, .mist, body.breathing .mists, .unlock-hint.nudge { animation: none; }
     .core { transform: scale(0.8); }
-    main { transition: none; }
+    .layer, main, .floor { transition: none; }
+    .ring *, .is-ring.settled .track, .is-ring.settled .arc { transition: none !important; }
   }
 </style>
 </head>
 <body>
+<!--
+THESIS: The pause is a clearing at the edge of a forest under the sky you would see right now, not a warning screen; it refuses the wellness-app pastel gradient with a breathing blob.
+OWN-WORLD: Procedural spruce tree lines in five depths fading into fog, a sky that follows the clock (mist by day, honey at golden hour, stars at night), Optima for the voice, pale lichen on the dark forest floor.
+STORY: The visitor arrives mid-impulse, breathes with the fog, reads one question, and leaves by the lit button on the forest floor or chooses a few minutes.
+FIRST VIEWPORT: Full-bleed forest; countdown disc and headline centred in the sky above the clearing; Close the tab and the minute choices on the dark floor band at the bottom.
+FORM: user-pinned forest world (overrides the roll); seed key 4bbebd6e.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+-->
+<div class="scene" id="scene" aria-hidden="true">
+  <div class="milky" id="milky"></div>
+  <svg class="stars" id="stars" preserveAspectRatio="none"></svg>
+  <div class="clouds" id="clouds"></div>
+  <div class="birds" id="birds"></div>
+  <canvas class="precip" id="precip" hidden></canvas>
+</div>
 <main id="main" aria-live="polite">
   <div class="breath" id="breath">
     <div class="halo"></div>
     <div class="core"></div>
+    <svg class="ring" viewBox="0 0 100 100" aria-hidden="true">
+      <circle class="track" cx="50" cy="50" r="48.4"></circle>
+      <circle class="arc" id="arc" cx="50" cy="50" r="48.4" pathLength="100"></circle>
+    </svg>
     <div class="readout">
       <div class="count" id="count"></div>
       <div class="cue" id="cue"></div>
     </div>
   </div>
   <h1 id="title"></h1>
+  <div class="commit" id="commit" hidden>
+    <p class="sentence" id="sentence" hidden></p>
+    <textarea id="typed" rows="1" disabled spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" aria-label="Your answer" aria-describedby="unlock-hint"></textarea>
+    <p class="unlock-hint" id="unlock-hint" aria-live="polite"></p>
+  </div>
   <p class="detail" id="detail"></p>
+</main>
+<footer class="floor">
   <div class="actions">
     <button class="primary" id="back">Close the tab</button>
     <div class="later" id="later">
@@ -190,16 +547,22 @@
     </div>
   </div>
   <p class="error" id="error" role="alert"></p>
-</main>
-<p class="hint">Press Esc to close the tab</p>
+  <p class="hint">Press Esc or ⌘W to close the tab</p>
+</footer>
 
+<script src="forest.js"></script>
 <script>
   const tauri = window.__TAURI__ || { core: { invoke: async () => null }, event: { listen: async () => {} } };
   const { invoke } = tauri.core;
   const { listen } = tauri.event;
   const $ = (id) => document.getElementById(id);
   let timer = null;
+  let raf = null;
   let current = null;
+  // What was typed into the sentence box. The window is only hidden between pauses, so when the
+  // user comes back to a pause they already sat through, the half-typed sentence is still here.
+  let draft = null;
+  const q = new URLSearchParams(location.search);
 
   const ordinal = (n) => ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth"][n - 1] || `${n}th`;
   const mins = (m) => `${m} minute${m === 1 ? "" : "s"}`;
@@ -240,14 +603,100 @@
     t.replaceChildren(before, siteSpan(site), after);
   }
 
+  // The headline or sentence with the site picked out in the glow colour.
+  function renderWithSite(el, text, site) {
+    const nodes = [];
+    (site ? text.split(site) : [text]).forEach((part, n) => {
+      if (n) nodes.push(siteSpan(site));
+      if (part) nodes.push(part);
+    });
+    el.replaceChildren(...nodes);
+  }
+
+  // Keep in step with prompts::unlocks on the Rust side, which has the final say.
+  const normalize = (s) =>
+    s.trim().replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/\s+/g, " ").toLowerCase().replace(/\.$/, "").trimEnd();
+  function unlocks(p, typed) {
+    if (!p) return true;
+    if (p.sentence) return normalize(typed) === normalize(p.sentence);
+    return true;
+  }
+
+  // What's still missing, in words, so a disabled button never goes unexplained.
+  function unlockHint(p, typed, shortest) {
+    if (unlocks(p, typed)) return { ready: true, text: `Press Return to open it for ${shortest} min, or pick a time below.` };
+    if (!typed.trim()) return { ready: false, text: "Type the sentence exactly as shown." };
+    const onTrack = normalize(p.sentence).startsWith(normalize(typed));
+    return { ready: false, text: onTrack ? "Keep going." : "Not quite. Check for a typo." };
+  }
+
+  function autosize(el) {
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight + 2, 110) + "px";
+  }
+
   function show(i) {
+    // each new pause walks into a different stretch of forest; a re-render keeps the one in view
+    if (!document.body.classList.contains("in")) sceneSeed = Math.floor(Math.random() * 2 ** 31);
     current = i;
+    weatherNow = i.weather || null;
+    paint();
+    startLife();
     clearInterval(timer);
+    cancelAnimationFrame(raf);
     $("error").textContent = "";
     const main = $("main"), breath = $("breath");
     const canContinue = i.reason === "pause" || i.reason === "expired";
-    breath.className = "breath";
-    main.classList.remove("waiting");
+    const prompt = canContinue ? i.prompt || null : null;
+    const style = canContinue ? i.countdown || "breathe" : "breathe";
+    const ring = style === "fill" || style === "drain";
+    const typing = !!prompt && !!prompt.sentence;
+    const draftKey = typing ? `${i.rule_id}\n${prompt.sentence}` : null;
+    if (!i.waited) draft = null;
+    breath.className = ring ? "breath is-ring" : "breath";
+    document.body.classList.remove("waiting", "breathing");
+    main.classList.toggle("typing", typing);
+
+    // type to unlock
+    const typed = $("typed");
+    typed.value = i.waited && draft && draft.key === draftKey ? draft.text : "";
+    typed.disabled = true;
+    typed.classList.remove("ok");
+    typed.placeholder = "You can type once the countdown ends";
+    typed.style.height = "";
+    typed.style.minHeight = "";
+    $("commit").hidden = !typing;
+    $("sentence").hidden = !prompt?.sentence;
+    if (prompt?.sentence) {
+      renderWithSite($("sentence"), prompt.sentence, i.site);
+      // Size the box for the whole sentence up front, so typing it never makes the box grow.
+      const text = typed.value;
+      typed.value = prompt.sentence;
+      autosize(typed);
+      typed.style.minHeight = typed.style.height;
+      typed.value = text;
+      typed.style.height = "";
+    }
+    const syncUnlock = () => {
+      const ok = unlocks(prompt, typed.value);
+      typed.classList.toggle("ok", typing && ok);
+      $("later").querySelectorAll("button").forEach((b) => (b.disabled = !ok));
+      const hint = $("unlock-hint");
+      if (typing && !typed.disabled) {
+        const h = unlockHint(prompt, typed.value, i.session_options[0]);
+        hint.textContent = h.text;
+        hint.classList.toggle("ready", h.ready);
+      } else {
+        hint.textContent = "";
+        hint.classList.remove("ready");
+      }
+    };
+    typed.oninput = () => {
+      autosize(typed);
+      syncUnlock();
+      $("error").textContent = "";
+      if (typing) draft = { key: draftKey, text: typed.value };
+    };
 
     // continue buttons
     const later = $("later");
@@ -260,9 +709,10 @@
         b.addEventListener("click", () => cont(m));
         later.appendChild(b);
       }
+      syncUnlock();
     }
 
-    $("detail").textContent = detailText(i);
+    $("detail").textContent = (prompt && i.reason === "expired" ? "Your time is up. " : "") + detailText(i);
 
     if (!canContinue) {
       breath.classList.add("stopped");
@@ -271,40 +721,93 @@
       if (i.reason === "blocked") setTitle("", i.site, ` is off ${i.until ? "until " + i.until : "right now"}.`);
       else setTitle("That's enough ", i.site, " for today.");
       $("back").focus();
-      requestAnimationFrame(() => main.classList.add("in"));
+      requestAnimationFrame(() => document.body.classList.add("in"));
       return;
     }
 
     // the pause
-    main.classList.add("waiting");
-    breath.classList.add("breathing");
-    if (i.reason === "expired") setTitle("Your time on ", i.site, " is up.");
+    document.body.classList.add("waiting");
+    if (prompt) renderWithSite($("title"), prompt.text, i.site);
+    else if (i.reason === "expired") setTitle("Your time on ", i.site, " is up.");
     else setTitle("", i.site, " can wait a few seconds.");
     const started = performance.now();
     const total = i.pause_seconds;
-    const tick = () => {
-      const elapsed = (performance.now() - started) / 1000;
-      const left = Math.max(Math.ceil(total - elapsed), 0);
-      $("count").textContent = left > 0 ? left : "";
-      $("cue").textContent = left > 0 ? (elapsed % 8 < 4 ? "Breathe in" : "Breathe out") : "";
-      if (left === 0) {
-        clearInterval(timer);
-        breath.classList.remove("breathing");
-        breath.classList.add("settled");
-        main.classList.remove("waiting");
+    const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const finish = () => {
+      breath.classList.remove("breathing");
+      breath.classList.add("settled");
+      document.body.classList.remove("waiting", "breathing");
+      $("count").textContent = "";
+      $("cue").textContent = "";
+      if (!prompt) {
         if (i.reason === "expired") setTitle("Your time on ", i.site, " is up. Another round?");
         else setTitle("Still want ", i.site, "?");
+      }
+      if (typing) {
+        typed.disabled = false;
+        typed.placeholder = "Type the sentence above";
+        syncUnlock();
+        typed.focus();
+      } else {
         $("back").focus();
       }
     };
-    tick();
-    timer = setInterval(tick, 200);
-    $("back").focus();
-    requestAnimationFrame(() => main.classList.add("in"));
+
+    // fill grows from nothing to a full circle; drain is the same arc retracting to 12 o'clock
+    const arc = $("arc");
+    const draw = (p) => {
+      const len = (style === "fill" ? p : 1 - p) * 100;
+      arc.style.strokeDasharray = `${len} 100`;
+      arc.style.visibility = len < 0.2 ? "hidden" : "visible";
+    };
+
+    if (i.waited) {
+      // the countdown was already served: arrive in the state it ends in
+      if (ring) draw(1);
+      finish();
+      autosize(typed);
+    } else if (ring) {
+      let shownLeft = -1;
+      const frame = () => {
+        const elapsed = (performance.now() - started) / 1000;
+        const left = Math.max(Math.ceil(total - elapsed), 0);
+        if (left !== shownLeft) {
+          shownLeft = left;
+          $("count").textContent = left > 0 ? left : "";
+        }
+        if (left === 0) {
+          draw(1);
+          finish();
+          return;
+        }
+        draw(Math.min((reduceMotion ? Math.floor(elapsed) : elapsed) / total, 1));
+        raf = requestAnimationFrame(frame);
+      };
+      frame();
+      $("back").focus();
+    } else {
+      breath.classList.add("breathing");
+      document.body.classList.add("breathing");
+      const tick = () => {
+        const elapsed = (performance.now() - started) / 1000;
+        const left = Math.max(Math.ceil(total - elapsed), 0);
+        $("count").textContent = left > 0 ? left : "";
+        $("cue").textContent = left > 0 ? (elapsed % 8 < 4 ? "Breathe in" : "Breathe out") : "";
+        if (left === 0) {
+          clearInterval(timer);
+          finish();
+        }
+      };
+      tick();
+      timer = setInterval(tick, 200);
+      $("back").focus();
+    }
+    requestAnimationFrame(() => document.body.classList.add("in"));
   }
 
   async function cont(m) {
-    try { await invoke("overlay_continue", { minutes: m }); }
+    try { await invoke("overlay_continue", { minutes: m, typed: $("commit").hidden ? null : $("typed").value }); }
     catch (e) { $("error").textContent = String(e); }
   }
 
@@ -313,17 +816,430 @@
     catch (e) { $("error").textContent = String(e); }
   }
 
+  // ---------- the forest ----------
+  // Five tree lines from the far ridge to the giants framing the clearing. Each pause draws a new
+  // forest (sceneSeed); a resize redraws the same one. Colours follow the Sky setting.
+  const NS = "http://www.w3.org/2000/svg";
+  const LAYERS = [
+    // base and sizes are fractions of the screen height; clear = how low trees get mid-screen
+    { base: 0.66, minH: 0.035, maxH: 0.12, minW: 0.018, maxW: 0.036, tone: 0.28, mist: 120, hills: 0.045, spacing: [0.5, 1.15], clear: 0.55, half: 0.28 },
+    { base: 0.72, minH: 0.045, maxH: 0.16, minW: 0.026, maxW: 0.05, tone: 0.48, mist: 95, hills: 0.03, spacing: [0.45, 1], clear: 0.5, half: 0.3 },
+    { base: 0.78, minH: 0.06, maxH: 0.2, minW: 0.038, maxW: 0.075, tone: 0.67, mist: 75, clear: 0.7, hills: 0.018 },
+    { base: "floor", minH: 0.05, maxH: 0.28, minW: 0.06, maxW: 0.115, tone: 0.86, clear: 0.2, hills: 0.014, scrub: 0.02 },
+    { base: 1, minH: 0, maxH: 0.7, minW: 0.12, maxW: 0.2, tone: 1, clear: 0, half: 0.5 },
+  ];
+  let builtFor = null;
+  let sceneSeed = Math.floor(Math.random() * 2 ** 31);
+  const el = (tag, cls) => { const n = document.createElement(tag); if (cls) n.className = cls; return n; };
+  const svgEl = (tag, attrs) => { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); return n; };
+
+  function buildScene() {
+    const W = innerWidth, H = innerHeight;
+    const key = `${W}x${H}:${sceneSeed}`;
+    if (builtFor === key) return;
+    builtFor = key;
+    const scene = $("scene");
+    scene.querySelectorAll(".layer, .mists, .glimmers").forEach((n) => n.remove());
+    const r = Forest.rng(sceneSeed);
+    // a little variety in how tall and dense this stretch of forest is
+    const tall = 0.85 + r() * 0.3;
+    const floorTop = H - parseFloat(getComputedStyle($("main")).bottom);
+    LAYERS.forEach((L, i) => {
+      const base = L.base === "floor" ? floorTop + 6 : L.base * H + (L.base === 1 ? 4 : 0);
+      const svg = document.createElementNS(NS, "svg");
+      svg.setAttribute("class", "layer");
+      svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+      svg.setAttribute("preserveAspectRatio", "none");
+      svg.style.setProperty("--i", i);
+      svg.style.setProperty("--depth", LAYERS.length - i);
+      svg.style.setProperty("--fill", `var(--l${i + 1})`);
+      const path = document.createElementNS(NS, "path");
+      path.setAttribute("d", Forest.treeline({
+        width: W, height: H, base,
+        minH: L.minH * H, maxH: L.maxH * H * (i < 3 ? tall : 1), minW: L.minW * H, maxW: L.maxW * H,
+        seed: sceneSeed + i * 131,
+        clearing: L.clear == null ? null : { center: W / 2, half: W * (L.half || 0.36), floor: L.clear },
+        hills: (L.hills || 0) * H, scrub: (L.scrub || 0) * H, spacing: L.spacing,
+      }));
+      svg.appendChild(path);
+      scene.appendChild(svg);
+      if (L.mist) {
+        const m = document.createElement("div");
+        m.className = "mist";
+        m.style.top = `${base - H * 0.075}px`;
+        m.style.height = `${H * 0.13}px`;
+        m.style.setProperty("--drift", `${L.mist}s`);
+        // fog sits in front of this tree line and behind the nearer ones
+        const wrap = document.createElement("div");
+        wrap.className = "mists";
+        wrap.appendChild(m);
+        scene.appendChild(wrap);
+      }
+      // fireflies and golden motes hover in front of the third tree line, behind the near ones
+      if (i === 2) {
+        for (const kind of ["fireflies", "motes"]) {
+          const g = el("div", `glimmers ${kind}`);
+          const n = kind === "fireflies" ? 12 + Math.floor(r() * 10) : 16 + Math.floor(r() * 10);
+          for (let k = 0; k < n; k++) {
+            const b = el("b");
+            const side = r() < 0.5 ? r() * 0.3 : 0.7 + r() * 0.3; // mostly beside the clearing
+            b.style.left = `${(kind === "motes" ? r() : side) * W}px`;
+            b.style.top = `${floorTop - H * (kind === "motes" ? 0.05 + r() * 0.35 : r() * 0.16)}px`;
+            const s = kind === "fireflies" ? 2 + r() * 2 : 1.5 + r() * 2;
+            const wob = () => `${((r() - 0.5) * (kind === "motes" ? 60 : 90)).toFixed(0)}px`;
+            const rise = () => `${(kind === "motes" ? -20 - r() * 50 : (r() - 0.5) * 50).toFixed(0)}px`;
+            Object.entries({
+              "--s": `${s.toFixed(1)}px`, "--t": `${(9 + r() * 12).toFixed(1)}s`, "--g": `${(2.5 + r() * 4).toFixed(1)}s`,
+              "--d": `${(-r() * 20).toFixed(1)}s`, "--x1": wob(), "--y1": rise(), "--x2": wob(), "--y2": rise(), "--x3": wob(), "--y3": rise(),
+            }).forEach(([k2, v]) => b.style.setProperty(k2, v));
+            g.appendChild(b);
+          }
+          scene.appendChild(g);
+        }
+      }
+    });
+    scene.appendChild($("precip"));
+    // stars, only visible at night; a share of them gather along the Milky Way, and some twinkle
+    const stars = $("stars"), SH = H * 0.6;
+    const tilt = -8 - r() * 22, my = 0.05 + r() * 0.25;
+    $("milky").style.setProperty("--milky-tilt", `${tilt.toFixed(1)}deg`);
+    $("milky").style.setProperty("--milky-y", `${(my * 100 - 23).toFixed(1)}%`);
+    const slope = Math.tan((tilt * Math.PI) / 180);
+    stars.setAttribute("viewBox", `0 0 ${W} ${SH}`);
+    const dots = [];
+    for (let k = Math.round(W / 9); k--; ) {
+      const onBand = k % 3 === 0;
+      const x = r() * W;
+      const y = onBand
+        ? H * (my + 0.05) + (x - W / 2) * slope + (r() + r() + r() - 1.5) * H * 0.07
+        : Math.pow(r(), 1.3) * SH;
+      if (y < 0 || y > SH) continue;
+      const big = r() < 0.06;
+      const c = svgEl("circle", {
+        cx: x.toFixed(1), cy: y.toFixed(1),
+        r: (big ? 1.1 + r() * 0.6 : onBand ? 0.3 + r() * 0.5 : 0.4 + r() * 0.8).toFixed(2),
+        opacity: (onBand ? 0.2 + r() * 0.5 : 0.3 + r() * 0.7).toFixed(2),
+      });
+      if (r() < 0.35) {
+        c.setAttribute("class", "tw");
+        c.style.setProperty("--tw", `${(1.6 + r() * 3.4).toFixed(1)}s`);
+        c.style.setProperty("--twd", `${(-r() * 5).toFixed(1)}s`);
+      }
+      dots.push(c);
+    }
+    stars.replaceChildren(...dots);
+  }
+
+  // Clouds, rain and snow. Without a weather reading a pause gets a few clouds (sometimes a clear
+  // sky); with one, the count, size and speed follow the cloud cover and the wind.
+  let weatherFor = null;
+  function buildWeather() {
+    const W = innerWidth, H = innerHeight, w = wx();
+    const key = `${W}x${H}:${sceneSeed}:${w.kind}:${w.cover.toFixed(1)}:${w.wind.toFixed(1)}:${w.rain}:${w.snow}`;
+    if (weatherFor === key) return false;
+    weatherFor = key;
+    buildClouds(W, H, Forest.rng(sceneSeed + 7), w);
+    startPrecip();
+    return true;
+  }
+
+  function buildClouds(W, H, r, w) {
+    const box = $("clouds");
+    box.replaceChildren(el("div", "deck"));
+    const count = !w.known ? (r() < 0.18 ? 0 : 1 + Math.floor(r() * 4)) : w.cover < 0.08 ? 0 : Math.round(1 + w.cover * 8 + r() * 2);
+    for (let k = 0; k < count; k++) {
+      const w0 = W * (0.16 + r() * 0.2) * (1 + w.cover * 0.6);
+      const c = el("div", "cloud");
+      const t = (260 + r() * 260) / (1 + w.wind * 3);
+      c.style.top = `${H * (0.03 + r() * (0.3 + w.cover * 0.08))}px`;
+      c.style.setProperty("--w", `${w0.toFixed(0)}px`);
+      c.style.setProperty("--t", `${t.toFixed(0)}s`);
+      c.style.setProperty("--d", `${(-r() * t).toFixed(0)}s`);
+      c.style.setProperty("--a", `${Math.min(38 + r() * 30 + w.cover * 25, 92).toFixed(0)}%`);
+      c.style.setProperty("--rest", `${(r() * W).toFixed(0)}px`);
+      // flat-bottomed puffs: a wide base and smaller rounded heads on top
+      const puffs = 4 + Math.floor(r() * 4);
+      for (let p = 0; p < puffs; p++) {
+        const i = el("i");
+        const pw = p === 0 ? 1 : 0.3 + r() * 0.35, ph = p === 0 ? 0.55 : pw * (1.3 + r() * 0.8);
+        const left = p === 0 ? 0 : 0.08 + r() * (0.84 - pw);
+        Object.assign(i.style, {
+          left: `${left * 100}%`, width: `${pw * 100}%`, height: `${ph * 100}%`,
+          bottom: `${p === 0 ? 0 : 12 + r() * 18}%`,
+        });
+        c.appendChild(i);
+      }
+      box.appendChild(c);
+    }
+  }
+
+  // Rain streaks or snowflakes on one canvas, each at its own depth: nearer ones are larger,
+  // faster and brighter. With reduced motion they are drawn once and stay still.
+  let drops = [], precipRaf = null;
+  function stopPrecip() {
+    cancelAnimationFrame(precipRaf);
+    precipRaf = null;
+  }
+  function startPrecip() {
+    stopPrecip();
+    const w = wx(), cv = $("precip"), amount = Math.max(w.rain, w.snow);
+    cv.hidden = !amount;
+    if (!amount) return;
+    const W = innerWidth, H = innerHeight, dpr = devicePixelRatio || 1;
+    cv.width = W * dpr;
+    cv.height = H * dpr;
+    const ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const snow = w.snow > w.rain, rnd = Math.random;
+    const slant = snow ? 0 : 0.06 + w.wind * 0.4; // sideways px per px fallen
+    const spawn = (anywhere) => {
+      const z = 0.25 + rnd() * 0.75;
+      return {
+        z, x: rnd() * (W + slant * H) - slant * H, y: anywhere ? rnd() * H : -30 - rnd() * 60,
+        v: snow ? 22 + 46 * z : 760 + 560 * z, len: 12 + 22 * z, sway: rnd() * 6.3, swayW: 0.4 + rnd() * 0.9,
+      };
+    };
+    drops = Array.from({ length: Math.round((snow ? 300 : 520) * amount * (W * H) / (1440 * 900)) }, () => spawn(true));
+    const drift = snow ? 12 + w.wind * 70 : 0;
+    // against a dark sky every streak catches the eye, so night rain is fainter
+    const fade = document.documentElement.classList.contains("night") ? 0.65 : 1;
+    const draw = (t) => {
+      ctx.clearRect(0, 0, W, H);
+      if (snow) {
+        ctx.fillStyle = "#f3f6f1";
+        for (const d of drops) {
+          ctx.globalAlpha = 0.35 + 0.5 * d.z;
+          ctx.beginPath();
+          ctx.arc(d.x + Math.sin(t / 1000 * d.swayW + d.sway) * 14 * d.z, d.y, 0.7 + 2.2 * d.z, 0, 6.283);
+          ctx.fill();
+        }
+      } else {
+        ctx.strokeStyle = "#d6e0e2";
+        ctx.lineCap = "round";
+        for (const d of drops) {
+          ctx.globalAlpha = (0.12 + 0.3 * d.z) * fade;
+          ctx.lineWidth = d.z > 0.8 ? 1.3 : 1;
+          ctx.beginPath();
+          ctx.moveTo(d.x, d.y);
+          ctx.lineTo(d.x - slant * d.len, d.y - d.len);
+          ctx.stroke();
+        }
+      }
+    };
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return draw(0);
+    let last = performance.now();
+    const frame = (now) => {
+      const dt = Math.min((now - last) / 1000, 0.05);
+      last = now;
+      for (let k = 0; k < drops.length; k++) {
+        const d = drops[k];
+        d.y += d.v * dt;
+        d.x += (slant * d.v + drift * d.z) * dt;
+        if (d.y - d.len > H || d.x > W + 40) drops[k] = spawn(false);
+      }
+      draw(now);
+      precipRaf = requestAnimationFrame(frame);
+    };
+    precipRaf = requestAnimationFrame(frame);
+  }
+
+  // ---------- life: birds by day, shooting stars by night ----------
+  let lifeTimers = [];
+  const soon = (fn, ms) => lifeTimers.push(setTimeout(fn, ms));
+  function stopLife() {
+    lifeTimers.forEach(clearTimeout);
+    lifeTimers = [];
+    $("birds").replaceChildren();
+    $("scene").querySelectorAll(".flash").forEach((n) => n.remove());
+  }
+  function startLife() {
+    stopLife();
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const w = wx(), s = Forest.sky(skyHour(), w);
+    if (w.storm) {
+      const strike = () => { lightning(); soon(strike, 6000 + Math.random() * 16000); };
+      soon(strike, 1500 + Math.random() * 3500);
+    }
+    // birds stay in the trees through rain, snow and thick fog
+    const calm = w.rain < 0.15 && w.snow < 0.15 && !w.storm && w.fog < 0.5;
+    if (s.stars > 0.5) {
+      const meteor = () => { shootingStar(); soon(meteor, 9000 + Math.random() * 26000); };
+      soon(meteor, 2500 + Math.random() * 7000);
+    } else if (calm && (s.day || Forest.golden(skyHour()) > 0.2)) {
+      // the first flock is already on its way when the pause appears, so short pauses still see it
+      flock(true);
+      const next = () => { flock(false); soon(next, 16000 + Math.random() * 22000); };
+      soon(next, 9000 + Math.random() * 12000);
+    }
+  }
+
+  function flock(midway) {
+    const W = innerWidth, H = innerHeight, rnd = Math.random;
+    const dir = rnd() < 0.5 ? 1 : -1;
+    const n = 2 + Math.floor(rnd() * 8);
+    const near = rnd(); // 0 far and small, 1 closer and larger
+    const size = 5 + near * 8;
+    const speed = 22 + near * 30; // px per second
+    const t = (W + 500) / speed;
+    const f = el("div", "flock");
+    Object.entries({
+      "--y": `${(H * (0.07 + rnd() * 0.3)).toFixed(0)}px`, "--t": `${t.toFixed(1)}s`,
+      "--d": midway ? `${(-t * (0.15 + rnd() * 0.35)).toFixed(1)}s` : "0s",
+      "--x0": dir > 0 ? "-250px" : `${W + 250}px`, "--x1": dir > 0 ? `${W + 250}px` : "-250px",
+      "--bt": `${(5 + rnd() * 5).toFixed(1)}s`, "--bob": `${(8 + rnd() * 22).toFixed(0)}px`,
+      "--bird": Forest.mix(getComputedStyle(document.documentElement).getPropertyValue("--horizon").trim() || "#dfe8de", "#0a1c15", 0.62 + near * 0.25),
+    }).forEach(([k, v]) => f.style.setProperty(k, v));
+    const svg = svgEl("svg", { width: "1", height: "1" });
+    // a loose V behind the leader, or a scatter
+    const vee = n > 3 && rnd() < 0.6;
+    for (let k = 0; k < n; k++) {
+      const row = Math.ceil(k / 2), side = k % 2 ? 1 : -1;
+      const x = vee ? -dir * row * size * 2.6 + (rnd() - 0.5) * size : (rnd() - 0.5) * size * 12;
+      const y = vee ? side * row * size * 1.5 + (rnd() - 0.5) * size * 0.6 : (rnd() - 0.5) * size * 6;
+      const sz = size * (0.8 + rnd() * 0.4);
+      svg.appendChild(bird(x, y, sz));
+    }
+    f.appendChild(svg);
+    f.addEventListener("animationend", (e) => { if (e.target === f) f.remove(); });
+    $("birds").appendChild(f);
+  }
+
+  // One bird: a curved gull silhouette whose wings beat a few times, then glide.
+  function bird(x, y, s) {
+    const wing = (tip, bend) => `M${-s} ${(tip * s).toFixed(2)}Q${(-s * 0.45).toFixed(2)} ${(bend * s).toFixed(2)} 0 0Q${(s * 0.45).toFixed(2)} ${(bend * s).toFixed(2)} ${s} ${(tip * s).toFixed(2)}`;
+    const up = wing(-0.6, -0.55), mid = wing(-0.08, -0.38), down = wing(0.42, -0.12);
+    const p = svgEl("path", { d: mid, transform: `translate(${x.toFixed(1)} ${y.toFixed(1)})`, "stroke-width": Math.max(1.1, s * 0.16).toFixed(2) });
+    const dur = 2.2 + Math.random() * 1.6;
+    p.appendChild(svgEl("animate", {
+      attributeName: "d", dur: `${dur.toFixed(2)}s`, repeatCount: "indefinite", begin: `${(-Math.random() * dur).toFixed(2)}s`,
+      values: [mid, up, down, up, down, mid, mid].join(";"), keyTimes: "0;0.09;0.2;0.31;0.42;0.55;1",
+      calcMode: "spline", keySplines: Array(6).fill("0.45 0 0.55 1").join(";"),
+    }));
+    return p;
+  }
+
+  function lightning() {
+    const f = el("div", "flash");
+    f.style.setProperty("--fx", `${(15 + Math.random() * 70).toFixed(0)}%`);
+    f.style.setProperty("--peak", (0.22 + Math.random() * 0.14).toFixed(2));
+    f.addEventListener("animationend", () => f.remove());
+    $("scene").insertBefore(f, $("birds"));
+  }
+
+  function shootingStar() {
+    const W = innerWidth, H = innerHeight, rnd = Math.random;
+    const m = el("div", "meteor");
+    const left = rnd() < 0.5;
+    m.style.left = `${(W * (left ? 0.08 + rnd() * 0.35 : 0.55 + rnd() * 0.3)).toFixed(0)}px`;
+    m.style.top = `${(H * (0.04 + rnd() * 0.22)).toFixed(0)}px`;
+    m.style.setProperty("--a", `${left ? 18 + rnd() * 20 : 142 + rnd() * 20}deg`);
+    m.style.setProperty("--len", `${(160 + rnd() * 220).toFixed(0)}px`);
+    m.addEventListener("animationend", () => m.remove());
+    $("scene").insertBefore(m, $("clouds"));
+  }
+
+  // The hour whose sky to show: now (in this Mac's time zone), or fixed for Light and Dark.
+  function skyHour() {
+    if (q.has("hour")) return +q.get("hour");
+    const mode = current?.sky || q.get("sky") || "time";
+    // the clock, stretched so dawn and dusk land on the real sunrise and sunset outside
+    return mode === "light" ? 11 : mode === "dark" ? 23.5 : Forest.solarHour(Forest.nowHour(), weatherReading());
+  }
+
+  // The weather outside, from the app (when the Weather setting is on and it has a recent
+  // reading), or from `?weather=` for design work.
+  let weatherNow = null;
+  const DEMO_WEATHER = { clear: [0, 5], cloudy: [2, 55], overcast: [3, 100], fog: [45, 100], drizzle: [53, 100], rain: [63, 100], downpour: [65, 100], storm: [95, 100], snow: [73, 100] };
+  function weatherReading() {
+    const d = DEMO_WEATHER[q.get("weather")];
+    return d ? { code: d[0], cloud: d[1], wind: +(q.get("wind") || 12) } : weatherNow;
+  }
+  const wx = () => {
+    const r = weatherReading();
+    return { ...Forest.weather(r), known: !!r };
+  };
+
+  // Colour the sky and tree lines for this hour.
+  function paint() {
+    const hour = skyHour(), w = wx();
+    const s = Forest.sky(hour, w), root = document.documentElement;
+    root.style.setProperty("--golden", (Forest.golden(hour) * (1 - w.gloom)).toFixed(2));
+    root.style.setProperty("--sky-top", s.top);
+    root.style.setProperty("--horizon", s.horizon);
+    root.style.setProperty("--near", s.near);
+    root.style.setProperty("--stars", s.stars);
+    // fog, and to a lesser degree rain and snow, swallow the far tree lines
+    const thick = 1 + w.fog * 2.2 + w.rain * 0.5 + w.snow * 0.7;
+    LAYERS.forEach((L, i) => root.style.setProperty(`--l${i + 1}`, Forest.mix(s.horizon, s.near, Math.pow(L.tone, thick))));
+    root.classList.toggle("night", !s.day);
+    // clouds are bright by day; after sunset they keep only a little of the last light
+    root.style.setProperty("--cloud-base", Forest.mix(Forest.mix(s.horizon, "#ffffff", s.day ? 0.7 : 0.18), s.day ? "#5d6766" : "#1c2424", w.gloom * 0.55));
+    root.style.setProperty("--gloom", w.gloom.toFixed(2));
+    root.style.setProperty("--deck", Math.max(0, (w.cover - 0.55) / 0.45).toFixed(2));
+    root.style.setProperty("--dry", w.rain || w.snow ? 0 : 1);
+    root.style.setProperty("--cloud-dim", s.day ? 1 : 0.55);
+    root.style.setProperty("--scrim", s.day ? `rgba(250, 252, 244, ${s.haze.toFixed(2)})` : `rgba(4, 12, 10, ${s.haze.toFixed(2)})`);
+    buildScene();
+    return buildWeather();
+  }
+  addEventListener("resize", () => { buildScene(); buildWeather(); });
+  setInterval(async () => {
+    if (!current) return;
+    if (!q.has("weather")) weatherNow = (await invoke("weather_now")) || null;
+    if (current && paint()) startLife();
+  }, 60000);
+
   $("back").addEventListener("click", back);
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") back(); });
+  // the point is to write it out, so no pasting or dropping text in
+  const typedBox = $("typed");
+  for (const type of ["paste", "drop", "dragover"]) typedBox.addEventListener(type, (e) => e.preventDefault());
+  typedBox.addEventListener("beforeinput", (e) => {
+    if (e.inputType === "insertFromPaste" || e.inputType === "insertFromDrop" || e.inputType === "insertFromYank") e.preventDefault();
+  });
+  // Return opens it for the shortest time once the answer is accepted; before that it points at what's missing.
+  typedBox.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" || e.isComposing) return;
+    e.preventDefault();
+    const shortest = current?.session_options?.[0];
+    if (shortest && unlocks(current.prompt, typedBox.value)) return cont(shortest);
+    const hint = $("unlock-hint");
+    hint.classList.remove("nudge");
+    void hint.offsetWidth;
+    hint.classList.add("nudge");
+  });
+  $("unlock-hint").addEventListener("animationend", (e) => e.target.classList.remove("nudge"));
+  // Esc or Cmd+W closes the tab. The app menu has no Close Window item, so the page sees Cmd+W.
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") back();
+    else if (e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "w") {
+      e.preventDefault();
+      back();
+    }
+  });
 
   listen("intercept", (e) => show(e.payload));
-  listen("dismiss", () => { clearInterval(timer); current = null; $("main").classList.remove("in"); });
+  listen("dismiss", () => { clearInterval(timer); cancelAnimationFrame(raf); stopLife(); stopPrecip(); current = null; document.body.classList.remove("in", "waiting", "breathing"); });
   invoke("overlay_state").then((i) => { if (i) show(i); });
 
   // test hook: overlay.html?demo=pause|expired|blocked|open_limit|time_limit
-  const demo = new URLSearchParams(location.search).get("demo");
-  if (demo && !window.__TAURI__) document.documentElement.style.background = "linear-gradient(135deg, #3a2f2a, #6b4a3a 40%, #1f2a3d)";
-  if (demo) show({ rule_name: "Social & video", site: "youtube.com", reason: demo, pause_seconds: 6, opens_today: 2, minutes_today: 12, daily_opens: 4, daily_minutes: 30, session_options: [2, 5, 15], until: demo === "blocked" ? "17:00" : null });
+  //   &countdown=breathe|fill|drain   &prompt=reflect|cost|commit|none   &seconds=6
+  //   &waited=1 (arrive with the countdown already served)   &hour=21.5 (light of that hour)
+  //   &weather=clear|cloudy|overcast|fog|drizzle|rain|downpour|storm|snow   &wind=30 (km/h)
+  const demo = q.get("demo");
+  if (demo) {
+    const site = "youtube.com";
+    const prompts = {
+      reflect: { kind: "reflect", text: `What were you about to do before you opened ${site}?`, sentence: null },
+      cost: { kind: "cost", text: `This is visit number 3 to ${site} today. What did the last one give you?`, sentence: null },
+      commit: { kind: "commit", text: "To unlock, type this sentence exactly:", sentence: `I could close this tab, but I'm choosing ${site} instead.` },
+      none: null,
+    };
+    show({
+      rule_id: "demo", rule_name: "Social & video", site, reason: demo, pause_seconds: +q.get("seconds") || 6, countdown: q.get("countdown") || "breathe",
+      prompt: prompts[q.get("prompt") || "reflect"] ?? null, waited: q.get("waited") === "1",
+      opens_today: 2, minutes_today: 12, daily_opens: 4, daily_minutes: 30, session_options: [2, 5, 15], until: demo === "blocked" ? "17:00" : null,
+    });
+  }
 </script>
 </body>
 </html>

@@ -12,6 +12,31 @@ pub enum Mode {
     Block,
 }
 
+/// How the pause countdown is drawn on the overlay.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum Countdown {
+    /// A circle that grows and shrinks with the breath.
+    #[default]
+    Breathe,
+    /// A ring that fills clockwise.
+    Fill,
+    /// A ring that empties back to 12 o'clock.
+    Drain,
+}
+
+/// A kind of message the pause screen can show instead of a fixed headline.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum PromptKind {
+    /// A mindful question while you wait.
+    Reflect,
+    /// What this visit takes from you.
+    Cost,
+    /// Type out an admission before the site opens.
+    Commit,
+}
+
 /// When a rule applies. Disabled means "always". `days[0]` is Monday.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
@@ -42,6 +67,9 @@ pub struct Rule {
     pub sites: Vec<String>,
     pub mode: Mode,
     pub pause_seconds: u32,
+    pub countdown: Countdown,
+    /// Message kinds to pick from at random. Empty behaves like `[Reflect]`.
+    pub prompts: Vec<PromptKind>,
     pub daily_opens: Option<u32>,
     pub daily_minutes: Option<u32>,
     pub schedule: Schedule,
@@ -56,6 +84,8 @@ impl Default for Rule {
             sites: vec![],
             mode: Mode::Pause,
             pause_seconds: 10,
+            countdown: Countdown::Breathe,
+            prompts: vec![PromptKind::Reflect],
             daily_opens: None,
             daily_minutes: None,
             schedule: Schedule::default(),
@@ -70,11 +100,16 @@ pub struct Settings {
     pub session_options: Vec<u32>,
     /// Stop counting time on a site after this many seconds without input.
     pub idle_seconds: u64,
+    /// How the pause screen and settings window are lit: "time" (the sky of the local hour),
+    /// "light" or "dark".
+    pub sky: String,
+    /// Rain, snow, fog and cloud on the pause screen follow the weather outside.
+    pub weather: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { session_options: vec![2, 5, 15], idle_seconds: 60 }
+        Settings { session_options: vec![2, 5, 15], idle_seconds: 60, sky: "time".into(), weather: true }
     }
 }
 
@@ -314,6 +349,17 @@ mod tests {
         assert!(rule_matches(&r, "https://reddit.com/r/all/top"));
         assert!(!rule_matches(&r, "https://reddit.com/r/rust"));
         assert!(!rule_matches(&r, "about:blank"));
+    }
+
+    #[test]
+    fn old_rules_get_new_defaults() {
+        let r: Rule = serde_json::from_str(r#"{"id":"a","name":"Old","sites":["x.com"],"mode":"pause","pause_seconds":12}"#).unwrap();
+        assert_eq!(r.countdown, Countdown::Breathe);
+        assert_eq!(r.prompts, vec![PromptKind::Reflect]);
+        assert_eq!(r.pause_seconds, 12);
+        let r: Rule = serde_json::from_str(r#"{"countdown":"drain","prompts":["cost","commit"]}"#).unwrap();
+        assert_eq!(r.countdown, Countdown::Drain);
+        assert_eq!(r.prompts, vec![PromptKind::Cost, PromptKind::Commit]);
     }
 
     #[test]

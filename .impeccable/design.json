@@ -1,0 +1,1524 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-11T17:37:24.923Z",
+  "title": "Design System: Defixum",
+  "extensions": {
+    "colorMeta": {
+      "mist-ground": {
+        "role": "neutral",
+        "displayName": "Mist Ground",
+        "canonical": "#e9ede7",
+        "oklch": "oklch(94.1% 0.009 134.9)",
+        "tonalRamp": [
+          "#0a0c08",
+          "#232622",
+          "#40433e",
+          "#5f625d",
+          "#80847e",
+          "#a3a6a1",
+          "#c7cac5",
+          "#ecf0ea"
+        ]
+      },
+      "lichen-panel": {
+        "role": "neutral",
+        "displayName": "Lichen Panel",
+        "canonical": "#e0e7df",
+        "oklch": "oklch(92.0% 0.013 141.8)",
+        "tonalRamp": [
+          "#080d08",
+          "#222721",
+          "#3e443d",
+          "#5d635c",
+          "#7e847d",
+          "#a1a7a0",
+          "#c5cbc4",
+          "#eaf1e9"
+        ]
+      },
+      "birch-surface": {
+        "role": "neutral",
+        "displayName": "Birch Surface",
+        "canonical": "#f8faf6",
+        "oklch": "oklch(98.2% 0.006 128.5)",
+        "tonalRamp": [
+          "#0a0c09",
+          "#242623",
+          "#41433f",
+          "#60625e",
+          "#81837f",
+          "#a4a6a2",
+          "#c8cac6",
+          "#edefeb"
+        ]
+      },
+      "spruce-ink": {
+        "role": "neutral",
+        "displayName": "Spruce Ink",
+        "canonical": "#14231c",
+        "oklch": "oklch(24.0% 0.025 163.7)",
+        "tonalRamp": [
+          "#020e08",
+          "#1a2922",
+          "#36463e",
+          "#55665d",
+          "#75877e",
+          "#98aaa1",
+          "#bbcec5",
+          "#e0f4ea"
+        ]
+      },
+      "bark-muted": {
+        "role": "neutral",
+        "displayName": "Bark Muted",
+        "canonical": "#52635a",
+        "oklch": "oklch(48.3% 0.025 162.2)",
+        "tonalRamp": [
+          "#020e08",
+          "#1a2921",
+          "#36463e",
+          "#55665d",
+          "#75877e",
+          "#98aaa0",
+          "#bbcfc4",
+          "#e0f4e9"
+        ]
+      },
+      "fog-faint": {
+        "role": "neutral",
+        "displayName": "Fog Faint",
+        "canonical": "#66766d",
+        "oklch": "oklch(55.0% 0.024 160.9)",
+        "tonalRamp": [
+          "#030e08",
+          "#1b2921",
+          "#37463e",
+          "#56665d",
+          "#77877e",
+          "#99aaa0",
+          "#bdcec4",
+          "#e2f4e9"
+        ]
+      },
+      "field-line": {
+        "role": "neutral",
+        "displayName": "Field Line",
+        "canonical": "#87948b",
+        "oklch": "oklch(65.3% 0.020 155.6)",
+        "tonalRamp": [
+          "#050e08",
+          "#1d2821",
+          "#3a453d",
+          "#59655c",
+          "#79867d",
+          "#9ca9a0",
+          "#bfcdc4",
+          "#e5f3e9"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#cdd6cd",
+        "oklch": "oklch(86.7% 0.016 145.4)",
+        "tonalRamp": [
+          "#070d07",
+          "#202720",
+          "#3d443d",
+          "#5c645c",
+          "#7d857d",
+          "#9fa89f",
+          "#c3ccc3",
+          "#e8f1e8"
+        ]
+      },
+      "moss": {
+        "role": "primary",
+        "displayName": "Moss",
+        "canonical": "#2d6a48",
+        "oklch": "oklch(47.4% 0.085 156.6)",
+        "tonalRamp": [
+          "#000f05",
+          "#022e18",
+          "#0c4f2f",
+          "#336f4d",
+          "#55926d",
+          "#78b58f",
+          "#9bdab3",
+          "#c5ffda"
+        ]
+      },
+      "moss-ink": {
+        "role": "neutral",
+        "displayName": "Moss Ink",
+        "canonical": "#ffffff",
+        "oklch": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "moss-soft": {
+        "role": "primary",
+        "displayName": "Moss Soft",
+        "canonical": "#d5e4d5",
+        "oklch": "oklch(90.3% 0.026 145.4)",
+        "tonalRamp": [
+          "#050e05",
+          "#1d281d",
+          "#3a463a",
+          "#586558",
+          "#798779",
+          "#9baa9b",
+          "#bfcebf",
+          "#e4f3e4"
+        ]
+      },
+      "resin-amber": {
+        "role": "secondary",
+        "displayName": "Resin Amber",
+        "canonical": "#93590f",
+        "oklch": "oklch(51.8% 0.111 65.1)",
+        "tonalRamp": [
+          "#150800",
+          "#381e00",
+          "#5f3806",
+          "#8b5200",
+          "#af7332",
+          "#d59656",
+          "#fbba7a",
+          "#feebd9"
+        ]
+      },
+      "resin-amber-soft": {
+        "role": "secondary",
+        "displayName": "Resin Amber Soft",
+        "canonical": "#f1e3c8",
+        "oklch": "oklch(92.0% 0.039 83.8)",
+        "tonalRamp": [
+          "#110a00",
+          "#2e230d",
+          "#4c402a",
+          "#6c6048",
+          "#8d8168",
+          "#b1a38a",
+          "#d5c8ad",
+          "#fbedd2"
+        ]
+      },
+      "opened-grey": {
+        "role": "neutral",
+        "displayName": "Opened Grey",
+        "canonical": "#74877b",
+        "oklch": "oklch(60.5% 0.028 157.7)",
+        "tonalRamp": [
+          "#020f07",
+          "#192920",
+          "#35473c",
+          "#54665b",
+          "#75887c",
+          "#97ab9e",
+          "#bbcfc2",
+          "#e0f5e7"
+        ]
+      },
+      "rust-danger": {
+        "role": "tertiary",
+        "displayName": "Rust Danger",
+        "canonical": "#b0432e",
+        "oklch": "oklch(52.9% 0.147 32.9)",
+        "tonalRamp": [
+          "#1e0100",
+          "#490901",
+          "#791a07",
+          "#a43823",
+          "#cb5b45",
+          "#f37f67",
+          "#fcb5a5",
+          "#ffe9e4"
+        ]
+      },
+      "strip-sky-top": {
+        "role": "neutral",
+        "displayName": "Strip Sky Top",
+        "canonical": "#b2c8c3",
+        "oklch": "oklch(81.5% 0.025 180.5)",
+        "tonalRamp": [
+          "#010f0c",
+          "#172926",
+          "#344643",
+          "#526662",
+          "#738783",
+          "#95aaa6",
+          "#b9cfca",
+          "#def4ef"
+        ]
+      },
+      "strip-sky-bottom": {
+        "role": "neutral",
+        "displayName": "Strip Sky Bottom",
+        "canonical": "#dfe7df",
+        "oklch": "oklch(92.0% 0.014 145.5)",
+        "tonalRamp": [
+          "#080d08",
+          "#212721",
+          "#3e443e",
+          "#5d635d",
+          "#7d857d",
+          "#a0a7a0",
+          "#c4ccc4",
+          "#e9f1e9"
+        ]
+      },
+      "strip-tree-far": {
+        "role": "neutral",
+        "displayName": "Strip Tree Far",
+        "canonical": "#9cb3a7",
+        "oklch": "oklch(74.6% 0.031 162.9)",
+        "tonalRamp": [
+          "#010f08",
+          "#172a21",
+          "#33473d",
+          "#52675c",
+          "#72887d",
+          "#95aba0",
+          "#b8d0c3",
+          "#ddf5e9"
+        ]
+      },
+      "strip-tree-near": {
+        "role": "neutral",
+        "displayName": "Strip Tree Near",
+        "canonical": "#23402f",
+        "oklch": "oklch(34.3% 0.046 157.1)",
+        "tonalRamp": [
+          "#010f06",
+          "#0f2c1c",
+          "#2c4a38",
+          "#4b6957",
+          "#6c8b77",
+          "#8eae9a",
+          "#b1d3bd",
+          "#d6f9e2"
+        ]
+      },
+      "mist-ground-dark": {
+        "role": "neutral",
+        "displayName": "Mist Ground Dark",
+        "canonical": "#0f1815",
+        "oklch": "oklch(19.9% 0.015 172.2)",
+        "tonalRamp": [
+          "#050d0a",
+          "#1e2724",
+          "#3a4541",
+          "#596460",
+          "#7a8581",
+          "#9ca8a4",
+          "#c0ccc8",
+          "#e5f2ed"
+        ]
+      },
+      "lichen-panel-dark": {
+        "role": "neutral",
+        "displayName": "Lichen Panel Dark",
+        "canonical": "#0b1310",
+        "oklch": "oklch(17.7% 0.014 169.6)",
+        "tonalRamp": [
+          "#060d0a",
+          "#1f2724",
+          "#3b4441",
+          "#5a6460",
+          "#7b8581",
+          "#9da8a4",
+          "#c1ccc8",
+          "#e6f2ed"
+        ]
+      },
+      "birch-surface-dark": {
+        "role": "neutral",
+        "displayName": "Birch Surface Dark",
+        "canonical": "#16221d",
+        "oklch": "oklch(23.9% 0.019 167.1)",
+        "tonalRamp": [
+          "#040e09",
+          "#1c2823",
+          "#384540",
+          "#57655f",
+          "#788680",
+          "#9aa9a2",
+          "#becdc6",
+          "#e3f3ec"
+        ]
+      },
+      "spruce-ink-dark": {
+        "role": "neutral",
+        "displayName": "Spruce Ink Dark",
+        "canonical": "#e1e9de",
+        "oklch": "oklch(92.5% 0.017 137.0)",
+        "tonalRamp": [
+          "#080d06",
+          "#21271f",
+          "#3e443b",
+          "#5d645a",
+          "#7e857b",
+          "#a0a89d",
+          "#c4ccc1",
+          "#e9f1e6"
+        ]
+      },
+      "bark-muted-dark": {
+        "role": "neutral",
+        "displayName": "Bark Muted Dark",
+        "canonical": "#93a398",
+        "oklch": "oklch(70.0% 0.024 155.7)",
+        "tonalRamp": [
+          "#040e07",
+          "#1c2920",
+          "#38463d",
+          "#57665b",
+          "#77877c",
+          "#9aaa9f",
+          "#bdcec3",
+          "#e2f4e8"
+        ]
+      },
+      "fog-faint-dark": {
+        "role": "neutral",
+        "displayName": "Fog Faint Dark",
+        "canonical": "#7a8a80",
+        "oklch": "oklch(61.7% 0.024 158.2)",
+        "tonalRamp": [
+          "#030e07",
+          "#1b2921",
+          "#38463d",
+          "#56665c",
+          "#77877d",
+          "#99aa9f",
+          "#bdcec3",
+          "#e2f4e9"
+        ]
+      },
+      "field-line-dark": {
+        "role": "neutral",
+        "displayName": "Field Line Dark",
+        "canonical": "#607066",
+        "oklch": "oklch(52.9% 0.025 158.0)",
+        "tonalRamp": [
+          "#030e07",
+          "#1b2920",
+          "#37463d",
+          "#56665c",
+          "#77877d",
+          "#99aa9f",
+          "#bdcec3",
+          "#e2f4e8"
+        ]
+      },
+      "hairline-dark": {
+        "role": "neutral",
+        "displayName": "Hairline Dark",
+        "canonical": "#22312a",
+        "oklch": "oklch(29.7% 0.024 164.5)",
+        "tonalRamp": [
+          "#030e09",
+          "#1a2922",
+          "#37463f",
+          "#55665e",
+          "#76877f",
+          "#98aaa1",
+          "#bccec5",
+          "#e1f4ea"
+        ]
+      },
+      "moss-dark": {
+        "role": "primary",
+        "displayName": "Moss Dark",
+        "canonical": "#8dc29c",
+        "oklch": "oklch(76.7% 0.078 153.1)",
+        "tonalRamp": [
+          "#000f04",
+          "#042d16",
+          "#1a4e2e",
+          "#3c6e4c",
+          "#5d906c",
+          "#7fb48e",
+          "#a3d8b2",
+          "#c7fed6"
+        ]
+      },
+      "moss-ink-dark": {
+        "role": "neutral",
+        "displayName": "Moss Ink Dark",
+        "canonical": "#0b1a12",
+        "oklch": "oklch(20.1% 0.026 159.5)",
+        "tonalRamp": [
+          "#020e07",
+          "#1a2920",
+          "#36463d",
+          "#55665c",
+          "#75877d",
+          "#98aa9f",
+          "#bbcfc3",
+          "#e0f4e8"
+        ]
+      },
+      "moss-soft-dark": {
+        "role": "primary",
+        "displayName": "Moss Soft Dark",
+        "canonical": "#1d3527",
+        "oklch": "oklch(30.4% 0.040 157.4)",
+        "tonalRamp": [
+          "#000f06",
+          "#132b1d",
+          "#30493a",
+          "#4f6858",
+          "#6f8a79",
+          "#91ad9b",
+          "#b5d1bf",
+          "#daf7e4"
+        ]
+      },
+      "resin-amber-dark": {
+        "role": "secondary",
+        "displayName": "Resin Amber Dark",
+        "canonical": "#e3ac5d",
+        "oklch": "oklch(78.0% 0.116 74.6)",
+        "tonalRamp": [
+          "#130900",
+          "#352000",
+          "#593b06",
+          "#805817",
+          "#ab7721",
+          "#d09a4a",
+          "#f6be6f",
+          "#fdecd4"
+        ]
+      },
+      "resin-amber-soft-dark": {
+        "role": "secondary",
+        "displayName": "Resin Amber Soft Dark",
+        "canonical": "#32281a",
+        "oklch": "oklch(28.4% 0.028 75.6)",
+        "tonalRamp": [
+          "#120901",
+          "#2d2315",
+          "#4b4031",
+          "#6b5f50",
+          "#8c8070",
+          "#b0a392",
+          "#d4c7b5",
+          "#faecda"
+        ]
+      },
+      "opened-grey-dark": {
+        "role": "neutral",
+        "displayName": "Opened Grey Dark",
+        "canonical": "#5f7366",
+        "oklch": "oklch(53.5% 0.031 156.7)",
+        "tonalRamp": [
+          "#010f06",
+          "#182a1f",
+          "#34473b",
+          "#53675a",
+          "#74887b",
+          "#96ab9d",
+          "#bad0c1",
+          "#dff5e6"
+        ]
+      },
+      "rust-danger-dark": {
+        "role": "tertiary",
+        "displayName": "Rust Danger Dark",
+        "canonical": "#e57b62",
+        "oklch": "oklch(69.7% 0.137 34.3)",
+        "tonalRamp": [
+          "#1c0200",
+          "#470d02",
+          "#75200b",
+          "#a03d26",
+          "#c65f48",
+          "#ee8369",
+          "#feb4a2",
+          "#ffe9e3"
+        ]
+      },
+      "strip-sky-top-dark": {
+        "role": "neutral",
+        "displayName": "Strip Sky Top Dark",
+        "canonical": "#09151a",
+        "oklch": "oklch(18.7% 0.020 226.4)",
+        "tonalRamp": [
+          "#030d12",
+          "#1b272d",
+          "#37444a",
+          "#56646a",
+          "#76858c",
+          "#99a8af",
+          "#bcccd3",
+          "#e1f2f9"
+        ]
+      },
+      "strip-sky-bottom-dark": {
+        "role": "neutral",
+        "displayName": "Strip Sky Bottom Dark",
+        "canonical": "#2a4741",
+        "oklch": "oklch(37.3% 0.037 179.6)",
+        "tonalRamp": [
+          "#000f0b",
+          "#0e2b26",
+          "#2b4942",
+          "#4a6862",
+          "#6b8a83",
+          "#8dada6",
+          "#b1d1ca",
+          "#d5f7ef"
+        ]
+      },
+      "strip-tree-far-dark": {
+        "role": "neutral",
+        "displayName": "Strip Tree Far Dark",
+        "canonical": "#1d332d",
+        "oklch": "oklch(30.0% 0.030 175.0)",
+        "tonalRamp": [
+          "#000f0a",
+          "#142a24",
+          "#314741",
+          "#506760",
+          "#708981",
+          "#92aca4",
+          "#b6d0c8",
+          "#dbf6ed"
+        ]
+      },
+      "strip-tree-near-dark": {
+        "role": "neutral",
+        "displayName": "Strip Tree Near Dark",
+        "canonical": "#040b09",
+        "oklch": "oklch(14.0% 0.014 177.5)",
+        "tonalRamp": [
+          "#050d0b",
+          "#1e2725",
+          "#3a4542",
+          "#596461",
+          "#7a8582",
+          "#9ca8a5",
+          "#c0ccc9",
+          "#e5f2ee"
+        ]
+      },
+      "night-sky-top": {
+        "role": "neutral",
+        "displayName": "Night Sky Top",
+        "canonical": "#07131a",
+        "oklch": "oklch(17.9% 0.023 234.9)",
+        "tonalRamp": [
+          "#030d13",
+          "#1a272f",
+          "#36444d",
+          "#55646d",
+          "#76858e",
+          "#98a8b2",
+          "#bcccd6",
+          "#e1f1fc"
+        ]
+      },
+      "night-horizon": {
+        "role": "neutral",
+        "displayName": "Night Horizon",
+        "canonical": "#22403c",
+        "oklch": "oklch(34.7% 0.037 184.8)",
+        "tonalRamp": [
+          "#000f0d",
+          "#0c2b27",
+          "#2a4944",
+          "#496864",
+          "#6a8a85",
+          "#8cada8",
+          "#b0d1cc",
+          "#d4f7f1"
+        ]
+      },
+      "day-sky-top": {
+        "role": "neutral",
+        "displayName": "Day Sky Top",
+        "canonical": "#a5c0bf",
+        "oklch": "oklch(78.7% 0.029 193.8)",
+        "tonalRamp": [
+          "#000f0e",
+          "#122a29",
+          "#2f4746",
+          "#4e6766",
+          "#6f8887",
+          "#91abaa",
+          "#b4d0cf",
+          "#d9f5f4"
+        ]
+      },
+      "day-horizon": {
+        "role": "neutral",
+        "displayName": "Day Horizon",
+        "canonical": "#dfe8de",
+        "oklch": "oklch(92.1% 0.016 142.6)",
+        "tonalRamp": [
+          "#070d07",
+          "#212720",
+          "#3d443c",
+          "#5c645b",
+          "#7d857c",
+          "#9fa89e",
+          "#c3ccc2",
+          "#e8f1e7"
+        ]
+      },
+      "golden-sky-top": {
+        "role": "neutral",
+        "displayName": "Golden Sky Top",
+        "canonical": "#c4ad80",
+        "oklch": "oklch(75.7% 0.066 83.8)",
+        "tonalRamp": [
+          "#110a00",
+          "#312201",
+          "#533f12",
+          "#735e33",
+          "#957f54",
+          "#b9a275",
+          "#dec698",
+          "#feedcb"
+        ]
+      },
+      "golden-horizon": {
+        "role": "neutral",
+        "displayName": "Golden Horizon",
+        "canonical": "#e8c48a",
+        "oklch": "oklch(83.8% 0.085 79.1)",
+        "tonalRamp": [
+          "#120900",
+          "#322204",
+          "#583c03",
+          "#7b5b21",
+          "#9e7c44",
+          "#c29f66",
+          "#e7c389",
+          "#feecd1"
+        ]
+      },
+      "dusk-sky-top": {
+        "role": "neutral",
+        "displayName": "Dusk Sky Top",
+        "canonical": "#20364a",
+        "oklch": "oklch(32.4% 0.045 247.1)",
+        "tonalRamp": [
+          "#000c1b",
+          "#11273a",
+          "#2e4459",
+          "#4c647a",
+          "#6d859d",
+          "#8fa8c1",
+          "#b2cde6",
+          "#e2f0fe"
+        ]
+      },
+      "dusk-horizon": {
+        "role": "neutral",
+        "displayName": "Dusk Horizon",
+        "canonical": "#5c6e69",
+        "oklch": "oklch(52.2% 0.023 176.7)",
+        "tonalRamp": [
+          "#020e0b",
+          "#192925",
+          "#354642",
+          "#546661",
+          "#758782",
+          "#97aaa5",
+          "#bacec9",
+          "#dff4ee"
+        ]
+      },
+      "near-spruce-day": {
+        "role": "neutral",
+        "displayName": "Near Spruce Day",
+        "canonical": "#0a1c15",
+        "oklch": "oklch(20.8% 0.028 166.4)",
+        "tonalRamp": [
+          "#010f09",
+          "#172922",
+          "#34473f",
+          "#53675e",
+          "#73887f",
+          "#95aba1",
+          "#b9cfc5",
+          "#def5ea"
+        ]
+      },
+      "near-spruce-night": {
+        "role": "neutral",
+        "displayName": "Near Spruce Night",
+        "canonical": "#020806",
+        "oklch": "oklch(12.4% 0.016 174.8)",
+        "tonalRamp": [
+          "#050d0b",
+          "#1d2825",
+          "#3a4541",
+          "#586461",
+          "#798682",
+          "#9ca8a4",
+          "#bfcdc8",
+          "#e4f2ee"
+        ]
+      },
+      "starlight": {
+        "role": "neutral",
+        "displayName": "Starlight",
+        "canonical": "#eef3e6",
+        "oklch": "oklch(95.7% 0.018 124.0)",
+        "tonalRamp": [
+          "#0a0c05",
+          "#23271d",
+          "#404439",
+          "#5f6358",
+          "#808479",
+          "#a2a79b",
+          "#c6cbbf",
+          "#ecf1e4"
+        ]
+      },
+      "sky-ink-day": {
+        "role": "neutral",
+        "displayName": "Sky Ink Day",
+        "canonical": "#10221a",
+        "oklch": "oklch(23.3% 0.029 164.0)",
+        "tonalRamp": [
+          "#010f08",
+          "#172a21",
+          "#34473e",
+          "#53675d",
+          "#73887e",
+          "#95aba0",
+          "#b9cfc4",
+          "#def5e9"
+        ]
+      },
+      "site-moss-day": {
+        "role": "primary",
+        "displayName": "Site Moss Day",
+        "canonical": "#2a6644",
+        "oklch": "oklch(46.1% 0.084 156.0)",
+        "tonalRamp": [
+          "#000f05",
+          "#032e18",
+          "#0e4f2e",
+          "#346f4d",
+          "#56926d",
+          "#79b58f",
+          "#9cdab2",
+          "#c6feda"
+        ]
+      },
+      "ring-mark-day": {
+        "role": "primary",
+        "displayName": "Ring Mark Day",
+        "canonical": "#2b5a42",
+        "oklch": "oklch(42.7% 0.066 159.5)",
+        "tonalRamp": [
+          "#000f06",
+          "#012e1a",
+          "#1d4d35",
+          "#3e6d54",
+          "#5f8f74",
+          "#81b297",
+          "#a5d7ba",
+          "#c9fddf"
+        ]
+      },
+      "sky-amber-day": {
+        "role": "secondary",
+        "displayName": "Sky Amber Day",
+        "canonical": "#8a520f",
+        "oklch": "oklch(49.3% 0.105 63.7)",
+        "tonalRamp": [
+          "#150800",
+          "#381e03",
+          "#613601",
+          "#8a520f",
+          "#ae7338",
+          "#d3965c",
+          "#faba7f",
+          "#fdebda"
+        ]
+      },
+      "sky-ink-night": {
+        "role": "neutral",
+        "displayName": "Sky Ink Night",
+        "canonical": "#e8f0e5",
+        "oklch": "oklch(94.6% 0.017 137.0)",
+        "tonalRamp": [
+          "#080d06",
+          "#21271f",
+          "#3e443b",
+          "#5d645a",
+          "#7e857b",
+          "#a0a89d",
+          "#c4ccc1",
+          "#e9f1e6"
+        ]
+      },
+      "site-lichen-night": {
+        "role": "primary",
+        "displayName": "Site Lichen Night",
+        "canonical": "#cfe2a4",
+        "oklch": "oklch(88.3% 0.084 122.0)",
+        "tonalRamp": [
+          "#090d00",
+          "#202902",
+          "#3b490b",
+          "#59692f",
+          "#7a8a50",
+          "#9cae72",
+          "#c0d295",
+          "#e5f8b9"
+        ]
+      },
+      "ring-mark-night": {
+        "role": "primary",
+        "displayName": "Ring Mark Night",
+        "canonical": "#e3ecd7",
+        "oklch": "oklch(93.1% 0.029 126.0)",
+        "tonalRamp": [
+          "#080d02",
+          "#212818",
+          "#3e4534",
+          "#5d6452",
+          "#7e8673",
+          "#a0a995",
+          "#c4cdb8",
+          "#e9f2dd"
+        ]
+      },
+      "sky-amber-night": {
+        "role": "secondary",
+        "displayName": "Sky Amber Night",
+        "canonical": "#e8b866",
+        "oklch": "oklch(80.9% 0.115 79.4)",
+        "tonalRamp": [
+          "#120900",
+          "#332100",
+          "#573d06",
+          "#7d5a16",
+          "#a67920",
+          "#cb9c49",
+          "#f1c16f",
+          "#ffecce"
+        ]
+      },
+      "sun-hi": {
+        "role": "neutral",
+        "displayName": "Sun Hi",
+        "canonical": "#fffef7",
+        "oklch": "oklch(99.6% 0.009 100.0)",
+        "tonalRamp": [
+          "#0c0b07",
+          "#262520",
+          "#43423d",
+          "#62615b",
+          "#83827c",
+          "#a6a59f",
+          "#cac9c3",
+          "#f0efe8"
+        ]
+      },
+      "sun": {
+        "role": "neutral",
+        "displayName": "Sun",
+        "canonical": "#f5f4e7",
+        "oklch": "oklch(96.4% 0.017 103.1)",
+        "tonalRamp": [
+          "#0c0b04",
+          "#26261c",
+          "#434338",
+          "#636257",
+          "#848377",
+          "#a7a69a",
+          "#cbcabd",
+          "#f0efe2"
+        ]
+      },
+      "sun-edge": {
+        "role": "neutral",
+        "displayName": "Sun Edge",
+        "canonical": "#e4e9da",
+        "oklch": "oklch(92.6% 0.021 121.9)",
+        "tonalRamp": [
+          "#0a0d04",
+          "#23271c",
+          "#404438",
+          "#5f6356",
+          "#808477",
+          "#a3a799",
+          "#c7cbbd",
+          "#ecf1e2"
+        ]
+      },
+      "moon-hi": {
+        "role": "neutral",
+        "displayName": "Moon Hi",
+        "canonical": "#f1f5e8",
+        "oklch": "oklch(96.4% 0.018 120.7)",
+        "tonalRamp": [
+          "#0a0c05",
+          "#24261d",
+          "#404439",
+          "#606358",
+          "#818478",
+          "#a3a79b",
+          "#c7cbbe",
+          "#ecf0e4"
+        ]
+      },
+      "moon": {
+        "role": "neutral",
+        "displayName": "Moon",
+        "canonical": "#dbe3cf",
+        "oklch": "oklch(90.4% 0.028 124.8)",
+        "tonalRamp": [
+          "#090d02",
+          "#222818",
+          "#3e4534",
+          "#5d6453",
+          "#7e8673",
+          "#a1a895",
+          "#c5cdb9",
+          "#eaf2de"
+        ]
+      },
+      "moon-edge": {
+        "role": "neutral",
+        "displayName": "Moon Edge",
+        "canonical": "#c3cfb9",
+        "oklch": "oklch(83.9% 0.033 130.6)",
+        "tonalRamp": [
+          "#070e02",
+          "#202817",
+          "#3c4633",
+          "#5b6552",
+          "#7c8772",
+          "#9eaa94",
+          "#c2ceb8",
+          "#e7f3dd"
+        ]
+      },
+      "low-sun-hi": {
+        "role": "secondary",
+        "displayName": "Low Sun Hi",
+        "canonical": "#fbe3b4",
+        "oklch": "oklch(92.4% 0.066 84.0)",
+        "tonalRamp": [
+          "#110a00",
+          "#312200",
+          "#533f12",
+          "#735e33",
+          "#957f53",
+          "#b9a275",
+          "#dec698",
+          "#feedca"
+        ]
+      },
+      "low-sun": {
+        "role": "secondary",
+        "displayName": "Low Sun",
+        "canonical": "#ecb873",
+        "oklch": "oklch(81.5% 0.105 73.3)",
+        "tonalRamp": [
+          "#130900",
+          "#352000",
+          "#5a3b06",
+          "#815816",
+          "#a87831",
+          "#cd9a56",
+          "#f3bf7a",
+          "#feebd4"
+        ]
+      },
+      "low-sun-edge": {
+        "role": "secondary",
+        "displayName": "Low Sun Edge",
+        "canonical": "#d99a50",
+        "oklch": "oklch(73.3% 0.118 68.5)",
+        "tonalRamp": [
+          "#140800",
+          "#371f01",
+          "#5c3908",
+          "#885404",
+          "#b07325",
+          "#d5964c",
+          "#fcbb71",
+          "#feebd7"
+        ]
+      },
+      "disc-ink": {
+        "role": "neutral",
+        "displayName": "Disc Ink",
+        "canonical": "#13251c",
+        "oklch": "oklch(24.5% 0.030 161.4)",
+        "tonalRamp": [
+          "#010f07",
+          "#172a20",
+          "#34473d",
+          "#53675c",
+          "#73887d",
+          "#95ab9f",
+          "#b9d0c3",
+          "#def5e8"
+        ]
+      },
+      "floor-ink": {
+        "role": "neutral",
+        "displayName": "Floor Ink",
+        "canonical": "#e6eee3",
+        "oklch": "oklch(94.0% 0.017 137.0)",
+        "tonalRamp": [
+          "#080d06",
+          "#21271f",
+          "#3e443b",
+          "#5d645a",
+          "#7e857b",
+          "#a0a89d",
+          "#c4ccc1",
+          "#e9f1e6"
+        ]
+      },
+      "lichen": {
+        "role": "tertiary",
+        "displayName": "Lichen",
+        "canonical": "#dbe7c9",
+        "oklch": "oklch(91.1% 0.042 125.0)",
+        "tonalRamp": [
+          "#080e00",
+          "#202911",
+          "#3d462d",
+          "#5c664c",
+          "#7c876c",
+          "#9faa8e",
+          "#c3ceb1",
+          "#e8f4d6"
+        ]
+      },
+      "lichen-lit": {
+        "role": "tertiary",
+        "displayName": "Lichen Lit",
+        "canonical": "#edf4e1",
+        "oklch": "oklch(95.7% 0.026 123.4)",
+        "tonalRamp": [
+          "#090d03",
+          "#222719",
+          "#3f4435",
+          "#5e6454",
+          "#7f8574",
+          "#a2a896",
+          "#c6ccba",
+          "#ebf2df"
+        ]
+      },
+      "lichen-ink": {
+        "role": "tertiary",
+        "displayName": "Lichen Ink",
+        "canonical": "#0e1e16",
+        "oklch": "oklch(21.8% 0.027 161.3)",
+        "tonalRamp": [
+          "#020f08",
+          "#192921",
+          "#35473d",
+          "#54665c",
+          "#75887d",
+          "#97aba0",
+          "#bbcfc4",
+          "#e0f5e9"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The pause headline or question in the sky; 29px under 720px of height."
+      },
+      "numeral": {
+        "displayName": "Numeral",
+        "purpose": "The countdown on the sun or moon, tabular figures, always Disc Ink."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Settings page titles and the editable rule name."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "The sentence to copy in Type to unlock, in curly quotes."
+      },
+      "aside": {
+        "displayName": "Aside",
+        "purpose": "The quiet 'today' line under the rule list; 19px for the empty editor message."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Settings text and every control."
+      },
+      "body-pause": {
+        "displayName": "Body Pause",
+        "purpose": "The pause detail line and the forest floor."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Field headings within a rule and sidebar group labels."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Option sublines, chart numbers and day letters, table headers."
+      }
+    },
+    "skyStops": [
+      {
+        "hour": 0,
+        "top": "#07131a",
+        "horizon": "#22403c"
+      },
+      {
+        "hour": 4.5,
+        "top": "#0b1b22",
+        "horizon": "#2a4542"
+      },
+      {
+        "hour": 6.5,
+        "top": "#8aa3a9",
+        "horizon": "#d6dccf"
+      },
+      {
+        "hour": 9.5,
+        "top": "#a5c0bf",
+        "horizon": "#dfe8de"
+      },
+      {
+        "hour": 16,
+        "top": "#a0bcb9",
+        "horizon": "#dce5d8"
+      },
+      {
+        "hour": 17.4,
+        "top": "#a9b7a4",
+        "horizon": "#e3d6a6"
+      },
+      {
+        "hour": 18.5,
+        "top": "#c4ad80",
+        "horizon": "#e8c48a"
+      },
+      {
+        "hour": 20.25,
+        "top": "#20364a",
+        "horizon": "#5c6e69"
+      },
+      {
+        "hour": 22,
+        "top": "#07131a",
+        "horizon": "#22403c"
+      },
+      {
+        "hour": 24,
+        "top": "#07131a",
+        "horizon": "#22403c"
+      }
+    ],
+    "treeLayers": {
+      "source": "ui/overlay.html LAYERS",
+      "tones": [
+        0.28,
+        0.48,
+        0.67,
+        0.86,
+        1
+      ],
+      "fill": "Forest.mix(horizon, near, tone)",
+      "nightThreshold": "mid-sky luminance <= 0.28",
+      "starsBelow": "luminance < 0.08"
+    },
+    "shadows": [
+      {
+        "name": "segment-lift",
+        "value": "0 1px 3px rgba(10, 30, 20, 0.16)",
+        "purpose": "Selected title-bar tab."
+      },
+      {
+        "name": "row-lift",
+        "value": "0 1px 2px rgba(10, 30, 20, 0.08)",
+        "purpose": "Current rule in the rule list."
+      },
+      {
+        "name": "knob",
+        "value": "0 1px 3px rgba(0, 0, 0, 0.25)",
+        "purpose": "Switch thumb."
+      },
+      {
+        "name": "field-ring",
+        "value": "0 0 0 1px var(--moss)",
+        "purpose": "Focused inputs and chip field, with a moss border."
+      },
+      {
+        "name": "floor-lift",
+        "value": "0 6px 18px rgba(0, 0, 0, 0.28)",
+        "purpose": "Close the tab on the dark floor."
+      },
+      {
+        "name": "sun-glow",
+        "value": "0 0 70px var(--body-glow), 0 0 18px var(--body-glow)",
+        "purpose": "The sun or moon disc."
+      },
+      {
+        "name": "text-lift-day",
+        "value": "0 0 22px rgba(236, 242, 232, 0.55)",
+        "purpose": "Text shadow for words in the daytime sky."
+      },
+      {
+        "name": "text-lift-night",
+        "value": "0 1px 14px rgba(0, 8, 6, 0.45)",
+        "purpose": "Text shadow for words in the night sky."
+      }
+    ],
+    "motion": [
+      {
+        "name": "treeline-rise",
+        "value": "transform 1600ms cubic-bezier(0.16, 1, 0.3, 1), opacity 1100ms ease-out; delay index * 90ms",
+        "purpose": "Each tree line rises from depth * 1.6vh below on entry, far to near."
+      },
+      {
+        "name": "words-fade",
+        "value": "opacity 700ms ease 250ms",
+        "purpose": "The sky column fades in after the trees start."
+      },
+      {
+        "name": "floor-fade",
+        "value": "opacity 700ms ease 450ms",
+        "purpose": "The floor actions fade in last."
+      },
+      {
+        "name": "breathe",
+        "value": "8s ease-in-out infinite",
+        "purpose": "Disc core 0.62 to 1, halo 0.72 to 1.12; fog lifts 2.2vh on the in-breath."
+      },
+      {
+        "name": "mist-drift",
+        "value": "75s / 95s / 120s ease-in-out infinite alternate, translateX -4% to 4%",
+        "purpose": "Fog bands drift; nearer bands drift faster."
+      },
+      {
+        "name": "settle",
+        "value": "transform 900ms ease",
+        "purpose": "The disc settles to 0.8 when the countdown ends."
+      },
+      {
+        "name": "state",
+        "value": "150ms ease",
+        "purpose": "Hover and checked changes on choices, switches and buttons."
+      },
+      {
+        "name": "saved-flash",
+        "value": "opacity 600ms ease, visible 1600ms",
+        "purpose": "The Saved pill in the title bar."
+      },
+      {
+        "name": "nudge",
+        "value": "360ms ease, translateX -4px / 4px",
+        "purpose": "The unlock hint when Return is pressed too early."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "prefers-reduced-motion: reduce",
+        "purpose": "No breathing, drift, rise or settle; disc rests at 0.8; the ring steps once a second; settings transitions off."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "pause-short",
+        "value": "max-height: 860px",
+        "purpose": "Gap 32px, smaller typing disc (200px) and numeral (52px)."
+      },
+      {
+        "name": "pause-shorter",
+        "value": "max-height: 720px",
+        "purpose": "Disc 220px, headline 29px."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Segmented Tabs",
+      "kind": "nav",
+      "refersTo": "tab-segment",
+      "description": "Title-bar section tabs on a translucent track over the sky strip.",
+      "html": "<nav class=\"ds-tabs\" role=\"tablist\"><button class=\"ds-tab\" aria-selected=\"true\">Rules</button><button class=\"ds-tab\" aria-selected=\"false\">Activity</button><button class=\"ds-tab\" aria-selected=\"false\">Setup <span class=\"ds-dot\"></span></button></nav>",
+      "css": ".ds-tabs { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: color-mix(in srgb, var(--surface, #f8faf6) 55%, transparent); border: 1px solid color-mix(in srgb, var(--ink, #14231c) 10%, transparent); font: 14px/1.5 -apple-system, system-ui, sans-serif; } .ds-tab { border: 0; background: none; padding: 4px 16px; border-radius: 7px; color: var(--muted, #52635a); font: inherit; font-weight: 500; cursor: pointer; } .ds-tab:hover { color: var(--ink, #14231c); } .ds-tab[aria-selected=\"true\"] { background: var(--surface, #f8faf6); color: var(--ink, #14231c); box-shadow: 0 1px 3px rgba(10, 30, 20, 0.16); } .ds-tab:focus-visible { outline: 2px solid var(--moss, #2d6a48); outline-offset: 2px; } .ds-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--amber, #93590f); margin-left: 4px; vertical-align: 1px; }"
+    },
+    {
+      "name": "Rule List Row",
+      "kind": "custom",
+      "refersTo": "rule-row",
+      "description": "A rule in the sidebar, marked by a spruce that is filled when on and outlined when off.",
+      "html": "<ul class=\"ds-rules\"><li><button class=\"ds-rule\" aria-current=\"true\"><svg class=\"ds-spruce\" viewBox=\"0 0 11 14\"><path d=\"M5.5 .7 8.9 5.6H7.2l2.9 4.5H6.3v3.2H4.7v-3.2H.9l2.9-4.5H2.1Z\"/></svg><span class=\"ds-rname\">Social &amp; video</span><span class=\"ds-rsub\">10s pause, youtube.com, reddit.com</span></button></li><li><button class=\"ds-rule ds-off\"><svg class=\"ds-spruce\" viewBox=\"0 0 11 14\"><path d=\"M5.5 .7 8.9 5.6H7.2l2.9 4.5H6.3v3.2H4.7v-3.2H.9l2.9-4.5H2.1Z\"/></svg><span class=\"ds-rname\">Work hours</span><span class=\"ds-rsub\">Blocks, news.ycombinator.com</span></button></li></ul>",
+      "css": ".ds-rules { list-style: none; padding: 12px; margin: 0; width: 260px; background: var(--panel, #e0e7df); display: flex; flex-direction: column; gap: 2px; font: 14px/1.5 -apple-system, system-ui, sans-serif; color: var(--ink, #14231c); } .ds-rule { width: 100%; text-align: left; border: 0; background: none; border-radius: 8px; padding: 9px 10px; display: grid; grid-template-columns: 11px 1fr; column-gap: 10px; align-items: baseline; font: inherit; color: inherit; cursor: pointer; } .ds-rule:hover { background: color-mix(in srgb, var(--surface, #f8faf6) 60%, transparent); } .ds-rule[aria-current=\"true\"] { background: var(--surface, #f8faf6); box-shadow: 0 1px 2px rgba(10, 30, 20, 0.08); } .ds-rule:focus-visible { outline: 2px solid var(--moss, #2d6a48); outline-offset: 2px; } .ds-spruce { width: 11px; height: 14px; align-self: center; fill: var(--moss, #2d6a48); } .ds-off .ds-spruce { fill: none; stroke: var(--faint, #8d9b92); stroke-width: 1; } .ds-rname { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ds-off .ds-rname { color: var(--muted, #52635a); } .ds-rsub { grid-column: 2; color: var(--muted, #52635a); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }"
+    },
+    {
+      "name": "Ruled Choice Frame",
+      "kind": "custom",
+      "refersTo": "choice-option",
+      "description": "Related options in one hairline-split frame; the chosen option is tinted Moss Soft.",
+      "html": "<div class=\"ds-choice\" role=\"radiogroup\"><label class=\"ds-opt\"><input type=\"radio\" name=\"ds-mode\" checked><span><strong>Pause first</strong><small>Wait, then choose to close the tab or open it for a few minutes</small></span></label><label class=\"ds-opt\"><input type=\"radio\" name=\"ds-mode\"><span><strong>Block</strong><small>No way through, only the option to close the tab</small></span></label></div>",
+      "css": ".ds-choice { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line, #cdd6cd); border-radius: 12px; background: var(--surface, #f8faf6); overflow: hidden; max-width: 520px; font: 14px/1.5 -apple-system, system-ui, sans-serif; color: var(--ink, #14231c); accent-color: var(--moss, #2d6a48); } .ds-opt { display: flex; gap: 10px; align-items: flex-start; padding: 13px 15px; transition: background 150ms ease; cursor: pointer; } .ds-opt + .ds-opt { border-left: 1px solid var(--line, #cdd6cd); } .ds-opt:hover { background: color-mix(in srgb, var(--moss-soft, #d5e4d5) 40%, transparent); } .ds-opt:has(:checked) { background: var(--moss-soft, #d5e4d5); } .ds-opt:has(:focus-visible) { outline: 2px solid var(--moss, #2d6a48); outline-offset: -2px; } .ds-opt input { margin-top: 3px; } .ds-opt input:focus-visible { outline: none; } .ds-opt strong { font-weight: 600; } .ds-opt small { display: block; color: var(--muted, #52635a); font-size: 12px; }"
+    },
+    {
+      "name": "Site Chips",
+      "kind": "chip",
+      "refersTo": "site-chip",
+      "description": "Sites in a rule, as moss-soft chips inside one bordered field with an add input.",
+      "html": "<div class=\"ds-chips\"><span class=\"ds-chip\">youtube.com<button aria-label=\"Remove\"><svg viewBox=\"0 0 8 8\"><path d=\"M1 1l6 6M7 1 1 7\"/></svg></button></span><span class=\"ds-chip\">reddit.com<button aria-label=\"Remove\"><svg viewBox=\"0 0 8 8\"><path d=\"M1 1l6 6M7 1 1 7\"/></svg></button></span><input placeholder=\"Add a site, like youtube.com\"></div>",
+      "css": ".ds-chips { display: flex; flex-wrap: wrap; gap: 6px; background: var(--surface, #f8faf6); border: 1px solid var(--line, #cdd6cd); border-radius: 10px; padding: 7px; max-width: 520px; font: 14px/1.5 -apple-system, system-ui, sans-serif; color: var(--ink, #14231c); } .ds-chips:focus-within { border-color: var(--moss, #2d6a48); box-shadow: 0 0 0 1px var(--moss, #2d6a48); } .ds-chip { display: inline-flex; align-items: center; gap: 4px; background: var(--moss-soft, #d5e4d5); border-radius: 6px; padding: 2px 4px 2px 9px; font-size: 13px; } .ds-chip button { border: 0; background: none; color: var(--muted, #52635a); padding: 0 4px; border-radius: 4px; line-height: 1.2; cursor: pointer; } .ds-chip button:hover { color: var(--ink, #14231c); background: color-mix(in srgb, var(--ink, #14231c) 8%, transparent); } .ds-chip button:focus-visible { outline: 2px solid var(--moss, #2d6a48); outline-offset: 2px; } .ds-chip svg { width: 8px; height: 8px; display: block; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; } .ds-chips input { flex: 1; min-width: 180px; border: 0; background: none; padding: 3px 4px; font: inherit; color: inherit; caret-color: var(--moss, #2d6a48); } .ds-chips input::placeholder { color: var(--faint, #8d9b92); } .ds-chips input:focus { outline: none; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "text-input",
+      "description": "Small birch field for numbers, times and short text in settings rows.",
+      "html": "<label class=\"ds-limit\">At most <input class=\"ds-input\" type=\"number\" value=\"30\"> minutes a day</label>",
+      "css": ".ds-limit { display: flex; align-items: center; gap: 8px; font: 14px/1.5 -apple-system, system-ui, sans-serif; color: var(--ink, #14231c); } .ds-input { background: var(--surface, #f8faf6); border: 1px solid var(--line, #cdd6cd); border-radius: 7px; padding: 4px 8px; width: 68px; font: inherit; color: inherit; font-variant-numeric: tabular-nums; } .ds-input:focus { outline: none; border-color: var(--moss, #2d6a48); box-shadow: 0 0 0 1px var(--moss, #2d6a48); } .ds-input:disabled { opacity: 0.45; }"
+    },
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "The settings window's only bordered button, for actions like Open System Settings.",
+      "html": "<button class=\"ds-btn\">Open System Settings</button>",
+      "css": ".ds-btn { border: 1px solid var(--line, #cdd6cd); background: var(--bg, #e9ede7); color: var(--ink, #14231c); border-radius: 7px; padding: 4px 12px; font: 13px/1.5 -apple-system, system-ui, sans-serif; white-space: nowrap; cursor: pointer; } .ds-btn:hover { border-color: var(--moss, #2d6a48); color: var(--moss, #2d6a48); } .ds-btn:focus-visible { outline: 2px solid var(--moss, #2d6a48); outline-offset: 2px; }"
+    },
+    {
+      "name": "Day Toggles",
+      "kind": "button",
+      "refersTo": "day-toggle",
+      "description": "Schedule weekday toggles; pressed days are solid moss.",
+      "html": "<div class=\"ds-days\"><button class=\"ds-day\" aria-pressed=\"true\">Mon</button><button class=\"ds-day\" aria-pressed=\"true\">Tue</button><button class=\"ds-day\" aria-pressed=\"false\">Sat</button></div>",
+      "css": ".ds-days { display: flex; gap: 6px; font: 13px/1.5 -apple-system, system-ui, sans-serif; } .ds-day { width: 42px; border: 1px solid var(--line, #cdd6cd); background: var(--surface, #f8faf6); border-radius: 8px; padding: 6px 0; font: inherit; color: var(--muted, #52635a); cursor: pointer; } .ds-day:hover { border-color: var(--moss, #2d6a48); } .ds-day[aria-pressed=\"true\"] { background: var(--moss, #2d6a48); border-color: var(--moss, #2d6a48); color: var(--moss-ink, #ffffff); } .ds-day:focus-visible { outline: 2px solid var(--moss, #2d6a48); outline-offset: 2px; }"
+    },
+    {
+      "name": "Switch",
+      "kind": "custom",
+      "refersTo": "switch-on",
+      "description": "On/off pill for a rule and for Open at login.",
+      "html": "<label class=\"ds-switch-label\"><input type=\"checkbox\" class=\"ds-switch\" checked> On</label>",
+      "css": ".ds-switch-label { display: flex; align-items: center; gap: 8px; color: var(--muted, #52635a); font: 13px/1.5 -apple-system, system-ui, sans-serif; } .ds-switch { appearance: none; margin: 0; width: 38px; height: 22px; border-radius: 999px; background: color-mix(in srgb, var(--ink, #14231c) 18%, transparent); position: relative; cursor: pointer; transition: background 150ms ease; } .ds-switch::after { content: \"\"; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); transition: transform 150ms ease; } .ds-switch:checked { background: var(--moss, #2d6a48); } .ds-switch:checked::after { transform: translateX(16px); } .ds-switch:focus-visible { outline: 2px solid var(--moss, #2d6a48); outline-offset: 2px; }"
+    },
+    {
+      "name": "Pause Floor Actions",
+      "kind": "button",
+      "refersTo": "pause-close",
+      "description": "The lit lichen Close the tab button and the translucent minute chips on the always-dark forest floor.",
+      "html": "<div class=\"ds-floor\"><button class=\"ds-close\">Close the tab</button><div class=\"ds-later\"><span>or open it for</span><button class=\"ds-min\">2 min</button><button class=\"ds-min\">5 min</button><button class=\"ds-min\">15 min</button></div></div>",
+      "css": ".ds-floor { background: #0a1c15; color: #e6eee3; padding: 32px 24px; display: flex; flex-direction: column; align-items: center; gap: 16px; font: 15px/1.5 -apple-system, system-ui, sans-serif; } .ds-floor button { font: inherit; border: 0; border-radius: 999px; cursor: pointer; transition: background 150ms ease, transform 150ms ease; } .ds-floor button:focus-visible { outline: 2px solid #dbe7c9; outline-offset: 3px; } .ds-floor button:active { transform: scale(0.97); } .ds-close { background: #dbe7c9; color: #0e1e16; font-weight: 600; padding: 0.7rem 1.4rem; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28); } .ds-close:hover { background: #edf4e1; } .ds-later { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 0.4rem; color: rgba(230, 238, 227, 0.62); font-size: 14px; } .ds-later span { margin-right: 0.35rem; } .ds-min { background: rgba(230, 238, 227, 0.1); color: #e6eee3; padding: 0.5rem 0.95rem; font-size: 14px; font-variant-numeric: tabular-nums; } .ds-min:hover { background: rgba(230, 238, 227, 0.19); }"
+    },
+    {
+      "name": "Countdown Disc",
+      "kind": "custom",
+      "refersTo": "numeral",
+      "description": "The daytime sun the countdown sits on, breathing on an 8-second cycle, with a still state under reduced motion.",
+      "html": "<div class=\"ds-sky\"><div class=\"ds-disc\"><div class=\"ds-halo\"></div><div class=\"ds-core\"></div><div class=\"ds-readout\"><div class=\"ds-count\">27</div><div class=\"ds-cue\">Breathe in</div></div></div></div>",
+      "css": ".ds-sky { background: linear-gradient(to bottom, #a5c0bf, #dfe8de 68%); padding: 16px; display: grid; place-items: center; } .ds-disc { position: relative; width: 220px; height: 220px; display: grid; place-items: center; } .ds-halo, .ds-core { position: absolute; inset: 0; border-radius: 50%; } .ds-halo { background: radial-gradient(circle, rgba(255, 255, 248, 0.75) 0%, transparent 68%); transform: scale(0.72); animation: ds-halo 8s ease-in-out infinite; } .ds-core { inset: 18%; background: radial-gradient(circle at 46% 42%, #fffef7, #f5f4e7 58%, #e4e9da); box-shadow: 0 0 70px rgba(255, 252, 236, 0.7), 0 0 18px rgba(255, 252, 236, 0.7); transform: scale(0.62); animation: ds-core 8s ease-in-out infinite; } .ds-readout { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; } .ds-count { color: #13251c; font: 400 48px/1 Optima, \"Optima Nova\", Candara, \"Segoe UI\", sans-serif; font-variant-numeric: tabular-nums; } .ds-cue { font: 13px/1.5 -apple-system, system-ui, sans-serif; color: rgba(19, 37, 28, 0.72); } @keyframes ds-core { 0%, 100% { transform: scale(0.62); } 50% { transform: scale(1); } } @keyframes ds-halo { 0%, 100% { transform: scale(0.72); opacity: .6; } 50% { transform: scale(1.12); opacity: 1; } } @media (prefers-reduced-motion: reduce) { .ds-halo, .ds-core { animation: none; } .ds-core { transform: scale(0.8); } }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Clearing at the Forest Edge",
+    "overview": "Defixum lives at the edge of a spruce forest. The pause overlay is the clearing itself: five procedural tree lines stand in depth from a far, fog-softened ridge to near-black giants that frame the screen, fog pools at the foot of each distant line, and the sky above them is the sky of the current hour, interpolated from the clock so the light drifts from mist to honey to stars instead of switching themes. The countdown is the sun by day and the moon by night; the question hangs in the open sky; the way out is one lit lichen button on the dark forest floor.\n\nThe settings window is the same forest seen from the trailhead and quieted for everyday use. A thin strip of live sky and a two-depth tree line crowns the window; everything beneath it is mist-grey ground and one hairline-ruled sheet, with moss green marking what is on and chosen. Rules are marked with a small spruce, filled when the rule is on and drawn in outline when it is off. The density is calm and deliberate: one rule fits on screen as a ruled form, not a stack of padded cards.\n\nThe voice is Optima at regular weight for everything that speaks (headlines, rule names, the countdown numerals, the typed sentence, the closing line of the rule list); the macOS system font carries every control. Motion is slow and atmospheric: tree lines rise into place, fog drifts over minutes, the disc breathes on an eight-second cycle, and all of it has a still alternative under reduced motion.",
+    "keyCharacteristics": [
+      "Procedural spruce tree lines, a new stretch of forest on every pause, as the only figurative imagery.",
+      "A sky driven continuously by the clock in the pause; system light/dark appearance in settings.",
+      "Depth by atmosphere (tone mixed from horizon to near spruce, plus fog), not by shadows.",
+      "Moss for on, chosen and turned back; resin amber for attention and over-limit.",
+      "One hairline-ruled sheet per group instead of stacked cards.",
+      "Optima at weight 400 for voice; system UI for controls."
+    ],
+    "rules": [
+      {
+        "name": "The Clock Is the Theme Rule",
+        "body": "Neither window reads system appearance; the Sky setting (`settings.sky`: `time`, `light` or `dark`) decides. With \"Time of day\" (the default) the pause takes its palette from the local hour in the Mac's time zone, interpolated between SKY stops and repainted every minute, and the settings window turns dark when the sky is night and tints its title bar with the same sky. \"Light\" fixes the pause at 11:00 and the settings window light; \"Dark\" fixes the pause at 23:30 and the settings window dark.",
+        "section": "colors"
+      },
+      {
+        "name": "The Moss Means On Rule",
+        "body": "Moss marks what is enabled, chosen or turned back; amber marks what needs attention or is over its limit. Never use moss for a warning or amber for success, and never show \"opened anyway\" in a warning colour.",
+        "section": "colors"
+      },
+      {
+        "name": "The Dark Floor Rule",
+        "body": "The forest floor at the bottom of the pause is always the near-spruce colour, day or night. Lichen is the only lit fill on it; everything else there is translucent Floor Ink.",
+        "section": "colors"
+      },
+      {
+        "name": "The Optima Voice Rule",
+        "body": "Optima is for words that speak to the person: headlines, rule names, numerals, the sentence to type and the quiet closing line. Every control, label, chip and table is the system font.",
+        "section": "typography"
+      },
+      {
+        "name": "The Regular Weight Rule",
+        "body": "Optima is always weight 400. Hierarchy in Optima comes from size alone; weight (500, 600) is reserved for the system font.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Count Rule",
+        "body": "Every number that changes or is compared (countdown, chart counts, table, minute chips, number inputs, slider output) uses tabular figures.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Gap Rule",
+        "body": "Stacked blocks in the pause are separated by exactly one gap, measured between what is visible: text blocks give back their half-leading with negative margins and the disc gives back the empty part of its box. The unlock hint floats inside the gap so filling it moves nothing; minute choices keep their room while invisible during the countdown.",
+        "section": "layout"
+      },
+      {
+        "name": "The Clearing Rule",
+        "body": "Tree lines dip toward the centre of the screen (the near layers fall to 20% to 70% of their height within a centred half-width) so the disc and words always sit over open sky. The title-bar tree line does the same under the tabs.",
+        "section": "layout"
+      },
+      {
+        "name": "The Atmosphere, Not Shadow Rule",
+        "body": "Distance is made with tone and fog. Sheets, panels and choice frames carry no drop shadow; a shadow appears only on a selected segment, a control's knob, or the single lit button on the floor.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Ruled Sheet Rule",
+        "body": "Related options share one frame split by hairlines (side by side, in thirds, or in rows) and the chosen one is tinted Moss Soft. Settings groups are one bordered sheet with hairline rows, never separate cards.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Spruce Silhouette Rule",
+        "body": "Trees are procedural spruces from `Forest.treeline`, seeded fresh for every pause, never images or generic triangles. A rule's on/off state is a filled or outlined spruce.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "**Do** derive every pause colour from the hour through `Forest.sky()` and the tone mix, and keep the repaint each minute.",
+      "**Do** draw trees with `Forest.treeline` and the pause's `sceneSeed`, so every pause is a new stretch of forest and a resize redraws the same one.",
+      "**Do** keep centred text inside the clearing, over open sky, with the text lift shadow.",
+      "**Do** use moss (`{colors.moss}`) for on, chosen and turned back, and resin amber (`{colors.resin-amber}`) for attention and over-limit.",
+      "**Do** group related settings in one hairline-ruled sheet with 12px corners and tint the chosen option Moss Soft.",
+      "**Do** set Optima at weight 400 and size its hierarchy from 15px to 64px; use the system font for controls.",
+      "**Do** keep one 40px visible gap between stacked pause blocks and reserve room for anything that appears later.",
+      "**Do** give every animation a still alternative under `prefers-reduced-motion`."
+    ],
+    "donts": [
+      "**Don't** tie either window to system appearance; the Sky setting drives it, and by default that means the clock.",
+      "**Don't** use tree images, clip-art or plain triangles; the spruce is procedural.",
+      "**Don't** put a light surface or a second lit button on the forest floor.",
+      "**Don't** stack padded cards or add drop shadows to sheets, panels or choice frames.",
+      "**Don't** bold Optima.",
+      "**Don't** colour \"opened anyway\" as an error; it is a neutral grey.",
+      "**Don't** let tall trees rise behind the disc or the words."
+    ]
+  }
+}

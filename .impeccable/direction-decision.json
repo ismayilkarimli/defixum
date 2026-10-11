@@ -1,0 +1,10 @@
+{
+  "seedKey": "4bbebd6e",
+  "scope": "direction",
+  "mode": "operate",
+  "roll": "Open Sky (assigned index 5)",
+  "decision": "user-pinned",
+  "chosen": "Forest edge: procedural spruce tree lines in depth with fog, sky following the clock, Optima voice, moss/lichen accents",
+  "userWords": "I'd want something foresty instead",
+  "note": "The decision page closed unanswered (exit 4); the structured-question fallback returned the forest pin, which overrides the roll. questions/717ad2b4.answer.json reflects the page default, not the user's choice."
+}

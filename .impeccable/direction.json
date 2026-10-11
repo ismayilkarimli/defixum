@@ -1,0 +1,139 @@
+{
+  "title": "Choose Defixum's visual world",
+  "question": "The roll picked Open Sky. Keep it, take an alternate, or re-roll. All three are outdoors and calm, as you asked.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Open Sky",
+      "kicker": "THE ROLL",
+      "lineage": "the real sky at the current hour, over a low ridge line",
+      "thesis": "Every pause happens under the sky you'd see if you looked up from the screen right now.",
+      "palette": ["#F4B98A", "#BCD7EA", "#E9A15B", "#5C4E8A", "#14203A", "#2D3A34"],
+      "materials": ["layered sky gradients that track the clock", "a low ridge silhouette", "sun and moon as the countdown"],
+      "viewport": "Pause: a full-bleed sky for this hour, a dark ridge along the bottom, and the countdown as the sun (or moon at night) in the middle. The message sits in the open sky and the choices rest on the ridge. Settings window: a thin live sky band across the top and calm earth-tone panels below.",
+      "risk": "If the gradients are muddy or the ridge is clip-art, it reads as a screensaver instead of a place.",
+      "raised": [
+        {"from": "challenger-labanotation", "raise": "Time is drawn to scale: pause length, open-for minutes and unlock time left are lengths along the horizon, not just numbers."},
+        {"from": "challenger-jp-density", "raise": "The settings window drops padded cards for one hairline-ruled sheet, so a whole rule fits on screen without scrolling."},
+        {"from": "challenger-jcard", "raise": "Daily minute limits read as a fixed day-length that fills up and can't overflow."},
+        {"from": "challenger-specimen", "raise": "One clock value drives the whole palette continuously, so the sky drifts with the light instead of jumping between themes."}
+      ],
+      "wireframe": {"cols": 12, "rows": 10, "regions": [
+        {"label": "sky for this hour", "x": 0, "y": 0, "w": 12, "h": 7},
+        {"label": "sun countdown", "x": 5, "y": 1, "w": 2, "h": 2, "accent": true},
+        {"label": "message", "x": 3, "y": 4, "w": 6, "h": 1},
+        {"label": "ridge + choices", "x": 0, "y": 7, "w": 12, "h": 3, "accent": true}
+      ]}
+    },
+    {
+      "id": "model-pick",
+      "label": "Trail Map",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "national park trail maps and routed-wood trailhead signs",
+      "thesis": "Each rule is a trail, and the pause is the trailhead sign where you decide whether to go in.",
+      "palette": ["#E3EADB", "#8A6A47", "#2E5E3E", "#5B8FA8", "#4A3424"],
+      "materials": ["topographic contour lines", "routed-wood sign plaques", "map-legend symbols"],
+      "viewport": "Pause: contour rings tightening around a summit as the countdown, with a wooden trailhead sign holding the message and the choices. Settings window: rules listed like trails in a map legend, each with its own symbol.",
+      "risk": "Familiar: outdoorsy brands lean on topo lines and park signage often, so it can feel like merch.",
+      "wireframe": {"cols": 12, "rows": 10, "regions": [
+        {"label": "contour field", "x": 0, "y": 0, "w": 12, "h": 10},
+        {"label": "summit countdown", "x": 4, "y": 1, "w": 4, "h": 4, "accent": true},
+        {"label": "trailhead sign", "x": 3, "y": 6, "w": 6, "h": 3, "accent": true}
+      ]}
+    },
+    {
+      "id": "challenger-zoo-map",
+      "label": "Garden Guide Map",
+      "verdict": "competitive",
+      "lineage": "zoo and botanical-garden guide maps",
+      "thesis": "The app as a park map: each rule is a land lobe of flat color with water showing through.",
+      "palette": ["#8ED462", "#F5F1E4", "#2C2E2A", "#F5E211", "#FF705D", "#2BA0FF"],
+      "materials": ["flat unmodulated color", "SVG coastlines", "capsule buttons"],
+      "viewport": "Pause: one green lobe swells across the screen, the countdown opens a pool in its middle, and capsule buttons sit on the coast.",
+      "case": "Strong outdoors identification and friendly for the general public, but its cheerful overshoot motion and bright capsules fight the calm you asked for.",
+      "risk": "Reads playful and touristy rather than calming.",
+      "hero": "https://impeccable.style/worlds/cards/aww2-zoo-gardens-guide-map-hero.webp"
+    },
+    {
+      "id": "challenger-labanotation",
+      "label": "Dance Score",
+      "verdict": "declined",
+      "lineage": "Labanotation dance scores",
+      "thesis": "Time flows upward on a center staff, each action's length is its exact duration.",
+      "palette": ["#FFFFFF", "#111111", "#D9D9D9"],
+      "materials": ["score paper", "hatched symbol blocks"],
+      "viewport": "A vertical staff with the countdown rising up it.",
+      "case": "No outdoors identification and hard for the general public to read.",
+      "risk": "Abstract notation reads as homework.",
+      "kept": "Durations drawn exactly to scale.",
+      "hero": "https://impeccable.style/worlds/cards/notation-diagram-systems-labanotation-hero.webp"
+    },
+    {
+      "id": "challenger-jp-density",
+      "label": "High-Density Grid",
+      "verdict": "declined",
+      "lineage": "Japanese high-density web",
+      "thesis": "Pack every module edge to edge with hairlines and red tabs.",
+      "palette": ["#FFFFFF", "#111111", "#D7262E", "#C9CCD1"],
+      "materials": ["hairline modules", "tiny gothic type"],
+      "viewport": "A dense mosaic of rule modules.",
+      "case": "Density is the opposite of the calm you asked for.",
+      "risk": "Anxious and busy.",
+      "kept": "A strict hairline system instead of padded cards.",
+      "hero": "https://impeccable.style/worlds/cards/japanese-high-density-web-hero.webp"
+    },
+    {
+      "id": "challenger-jcard",
+      "label": "Mixtape J-Card",
+      "verdict": "declined",
+      "lineage": "hand-lettered cassette inlays",
+      "thesis": "Each side holds exactly forty-five minutes, no more.",
+      "palette": ["#FFFFFF", "#2741A8", "#9A9A9A", "#D2232A"],
+      "materials": ["ballpoint on lined inlay"],
+      "viewport": "Rules as tracklists with running times.",
+      "case": "Nostalgic, not outdoorsy, and the metaphor muddles what a rule is.",
+      "risk": "Reads as a music app.",
+      "kept": "Time as a fixed capacity that can't overflow.",
+      "hero": "https://impeccable.style/worlds/cards/vernacular-ephemera-cassette-j-card-hero.webp"
+    },
+    {
+      "id": "challenger-specimen",
+      "label": "Type Specimen",
+      "verdict": "declined",
+      "lineage": "variable-font specimens",
+      "thesis": "One slider morphs the whole page live.",
+      "palette": ["#F7F7F5", "#111111", "#3B5BDB"],
+      "materials": ["giant letterforms", "axis sliders"],
+      "viewport": "A giant glyph breathing with the countdown.",
+      "case": "No connection to calm or the outdoors.",
+      "risk": "A designer's toy.",
+      "kept": "One value driving the whole page continuously.",
+      "hero": "https://impeccable.style/worlds/cards/variable-font-specimen-hero.webp"
+    },
+    {
+      "id": "challenger-doujin",
+      "label": "Convention Catalog",
+      "verdict": "declined",
+      "lineage": "doujin event catalogs on newsprint",
+      "thesis": "Thousands of stamp-sized cells, circled in biro.",
+      "palette": ["#E9E6DF", "#1A1A1A", "#3D7EC9"],
+      "materials": ["newsprint", "pen marks"],
+      "viewport": "A packed grid of sites.",
+      "case": "Busy and niche; the opposite of calm.",
+      "risk": "Unreadable for the general public.",
+      "kept": "Marked state by hand: circled and struck through."
+    }
+  ],
+  "reroll": {"registers": ["safer", "bolder"]},
+  "buildPath": {"value": "code"},
+  "canon": true,
+  "canonCard": {
+    "label": "Wellness app standard",
+    "thesis": "What meditation and focus apps ship, done carefully.",
+    "palette": ["#E7EFEA", "#6E9C86", "#1F3A33", "#FFFFFF"],
+    "materials": ["soft sage gradients", "rounded cards", "mountain silhouette"],
+    "viewport": "A soft gradient with a breathing circle and two rounded buttons.",
+    "risk": "Looks like Calm, Headspace and every focus app."
+  },
+  "steer": true
+}

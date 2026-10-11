@@ -11,6 +11,10 @@ It works without any browser extension. Defixum reads the address of the tab you
 - **Daily limits**: cap how many times a day you open a site, or how many minutes you spend on it.
 - **Schedules**: rules can apply only on certain days and times, including overnight.
 - **Activity**: see how often you turned back versus went through, over the last 7 days.
+- **Countdowns and messages**: breathe, fill or drain countdowns, and optional messages while you wait: a question to reflect on, what the visit costs you, or a sentence to type out before you can continue.
+- **A forest under your sky**: the pause is a clearing in a forest drawn fresh each time. The sky follows your clock, with stars at night and birds by day, or you can fix it to light or dark.
+- **The weather outside**: rain, snow, fog, storms and clouds on the pause match your local weather. This uses an approximate location from your internet address (ipwho.is) and the weather from Open-Meteo. Turn it off in Setup if you'd rather not.
+- **Menu bar timer**: shows the time left when you've opened a site for a few minutes.
 
 ### Install
 

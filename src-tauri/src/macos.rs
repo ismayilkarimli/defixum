@@ -244,8 +244,11 @@ pub fn applescript(source: &str) -> Script {
             Some(s)
         });
         let Some(script) = script else { return Script::Failed("could not create script".into()) };
-        let mut error = None;
-        let result = unsafe { script.executeAndReturnError(Some(&mut error)) };
+        let mut error: Option<objc2::rc::Retained<objc2_foundation::NSDictionary<NSString, objc2::runtime::AnyObject>>> = None;
+        // Not `script.executeAndReturnError`: objc2 types its result as non-null and panics when
+        // a script fails (e.g. times out while macOS shows the Automation prompt), killing the app.
+        let result: Option<objc2::rc::Retained<objc2_foundation::NSAppleEventDescriptor>> =
+            unsafe { objc2::msg_send![&*script, executeAndReturnError: Some(&mut error)] };
         if let Some(err) = error {
             let number = err
                 .objectForKey(&NSString::from_str("NSAppleScriptErrorNumber"))
@@ -264,6 +267,23 @@ pub fn applescript(source: &str) -> Script {
                 Script::Failed(format!("{number}: {message}"))
             };
         }
-        Script::Ok(result.stringValue().map(|s| s.to_string()).unwrap_or_default())
+        match result {
+            Some(r) => Script::Ok(r.stringValue().map(|s| s.to_string()).unwrap_or_default()),
+            None => Script::Failed("script returned nothing".into()),
+        }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn failing_script_is_an_error_not_a_crash() {
+        match applescript("error \"boom\" number 42") {
+            Script::Failed(msg) => assert_eq!(msg, "42: boom"),
+            _ => panic!("expected Script::Failed"),
+        }
+        assert!(matches!(applescript("return \"ok\""), Script::Ok(s) if s == "ok"));
+    }
 }
