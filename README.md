@@ -14,7 +14,7 @@ It works without any browser extension. Defixum reads the address of the tab you
 
 ### Install
 
-1. Download `Defixum_0.1.0_universal.dmg` from the [latest release](https://github.com/ismayilkarimli/defixum/releases/latest) and drag Defixum into Applications. The download works on Apple Silicon and Intel Macs running macOS 13 or later.
+1. Download the `.dmg` from the [latest release](https://github.com/ismayilkarimli/defixum/releases/latest) and drag Defixum into Applications. The download works on Apple Silicon and Intel Macs running macOS 13 or later.
 2. The app isn't notarized, so macOS blocks it the first time. Open it once, then go to **System Settings → Privacy & Security** and click **Open Anyway**. You can also run:
    ```bash
    xattr -dr com.apple.quarantine /Applications/Defixum.app
