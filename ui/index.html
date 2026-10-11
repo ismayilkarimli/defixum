@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Defixum</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="bar" data-tauri-drag-region>
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button role="tab" data-tab="rules" aria-selected="true">Rules</button>
+    <button role="tab" data-tab="activity" aria-selected="false">Activity</button>
+    <button role="tab" data-tab="setup" aria-selected="false">Setup <span class="dot" id="setup-dot" hidden></span></button>
+  </nav>
+  <span class="saved" id="saved" aria-live="polite"></span>
+</header>
+
+<main>
+  <!-- Rules -->
+  <section id="tab-rules" class="tab rules" role="tabpanel">
+    <aside class="rule-list">
+      <h2>Rules</h2>
+      <ul id="rule-list"></ul>
+      <button class="add" id="add-rule">New rule</button>
+      <p class="today" id="today-line"></p>
+    </aside>
+    <div class="editor" id="editor"></div>
+  </section>
+
+  <!-- Activity -->
+  <section id="tab-activity" class="tab activity" role="tabpanel" hidden>
+    <div class="wrap">
+      <h1 id="activity-headline"></h1>
+      <p class="lede" id="activity-lede"></p>
+      <div class="chart" id="week-chart" aria-label="Last 7 days"></div>
+      <p class="legend"><span class="key k-back"></span>Turned back <span class="key k-open"></span>Opened anyway</p>
+      <table class="table" id="rule-table">
+        <thead><tr><th>Rule</th><th>Pauses</th><th>Turned back</th><th>Opened</th><th>Time today</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Setup -->
+  <section id="tab-setup" class="tab setup" role="tabpanel" hidden>
+    <div class="wrap">
+      <h1>Setup</h1>
+      <div class="group">
+        <h3>Browsers</h3>
+        <p class="help">Defixum reads the address of the tab you're looking at. Firefox-based browsers like Zen are read through Accessibility, so no extension is needed. Safari and Chromium browsers are asked directly, and macOS checks with you once per browser.</p>
+        <div class="row" id="ax-row"></div>
+        <ul class="browsers" id="browsers"></ul>
+      </div>
+      <div class="group">
+        <h3>Pause screen</h3>
+        <label class="row">
+          <span><strong>Open-for choices</strong><small>Minutes offered after the pause, separated by commas</small></span>
+          <input type="text" id="session-options" inputmode="numeric" placeholder="2, 5, 15">
+        </label>
+        <label class="row">
+          <span><strong>Stop counting time when idle for</strong><small>Time on a site only counts while you're using the computer</small></span>
+          <span class="unit"><input type="number" id="idle-seconds" min="10" max="900"> sec</span>
+        </label>
+      </div>
+      <div class="group">
+        <h3>General</h3>
+        <label class="row">
+          <span><strong>Open at login</strong><small>Defixum lives in the menu bar and needs to be running to pause you</small></span>
+          <input type="checkbox" class="switch" id="autostart">
+        </label>
+      </div>
+    </div>
+  </section>
+</main>
+
+<template id="tpl-editor">
+  <div class="editor-inner">
+    <div class="editor-head">
+      <input class="name" id="f-name" aria-label="Rule name" placeholder="Rule name">
+      <label class="switch-label"><input type="checkbox" class="switch" id="f-enabled"> <span id="f-enabled-text">On</span></label>
+    </div>
+
+    <div class="field">
+      <h3>Sites</h3>
+      <div class="chips" id="f-sites">
+        <input id="f-site-input" placeholder="Add a site, like youtube.com" aria-label="Add a site">
+      </div>
+      <p class="help">Subdomains are included. Add a path to narrow it, like reddit.com/r/all.</p>
+    </div>
+
+    <div class="field">
+      <h3>When you visit</h3>
+      <div class="choice" role="radiogroup">
+        <label><input type="radio" name="mode" value="pause"><span><strong>Pause first</strong><small>Wait, then choose to close the tab or open it for a few minutes</small></span></label>
+        <label><input type="radio" name="mode" value="block"><span><strong>Block</strong><small>No way through, only the option to close the tab. Useful with a schedule</small></span></label>
+      </div>
+      <label class="inline" id="pause-len">Pause for <input type="range" id="f-pause" min="3" max="60" step="1"> <output id="f-pause-out"></output></label>
+    </div>
+
+    <div class="field" id="limits">
+      <h3>Daily limits</h3>
+      <div class="pair">
+        <label class="limit"><input type="checkbox" id="f-opens-on"> At most <input type="number" id="f-opens" min="1" max="99"> opens a day</label>
+        <label class="limit"><input type="checkbox" id="f-mins-on"> At most <input type="number" id="f-mins" min="1" max="1440"> minutes a day</label>
+      </div>
+      <p class="help">Once a limit is hit, the site stays blocked until tomorrow.</p>
+    </div>
+
+    <div class="field">
+      <h3>Schedule</h3>
+      <label class="limit"><input type="checkbox" id="f-sched-on"> Only on certain days and times</label>
+      <div class="sched" id="sched">
+        <div class="days" id="f-days"></div>
+        <label class="inline">From <input type="time" id="f-start"> to <input type="time" id="f-end"></label>
+      </div>
+    </div>
+
+    <div class="editor-foot">
+      <button class="danger" id="f-delete">Delete rule</button>
+    </div>
+  </div>
+</template>
+
+<script src="app.js"></script>
+</body>
+</html>

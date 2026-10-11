@@ -1,0 +1,16 @@
+{
+  "name": "defixum",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build --bundles app",
+    "release": "CI=true APPLE_SIGNING_IDENTITY=- tauri build --target universal-apple-darwin --bundles app,dmg"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.2"
+  },
+  "description": "A macOS menu-bar app that makes you pause before opening distracting websites. No browser extension needed.",
+  "license": "UNLICENSED"
+}

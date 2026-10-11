@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>LSUIElement</key>
+  <true/>
+  <key>NSAppleEventsUsageDescription</key>
+  <string>Defixum reads the current tab's address in your browser to know when to pause you, and moves the tab away when you choose to turn back.</string>
+</dict>
+</plist>

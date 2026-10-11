@@ -1,0 +1,24 @@
+[package]
+name = "defixum"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "defixum_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+chrono = "0.4.45"
+core-foundation = "0.10.1"
+core-foundation-sys = "0.8.7"
+core-graphics = { version = "0.25.0", features = ["elcapitan"] }
+objc2 = "0.6.5"
+objc2-app-kit = "0.3.2"
+objc2-foundation = "0.3.2"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.152"
+tauri = { version = "2.12.3", features = ["tray-icon", "macos-private-api", "image-png"] }
+tauri-plugin-autostart = "2.7.0"

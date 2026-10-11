@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tab closed by Defixum</title>
+<style>
+  :root { --bg1: #1d1c36; --bg2: #3a3160; --glow: #f6dcc8; --text: #f1eef7; --muted: rgba(236, 232, 246, 0.62); }
+  * { margin: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(110% 80% at 50% 100%, #8a5a59 0%, var(--bg2) 45%, var(--bg1) 100%);
+    color: var(--text);
+    font: 16px/1.55 -apple-system, system-ui, sans-serif;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    padding: 2rem 1rem;
+    -webkit-font-smoothing: antialiased;
+  }
+  .point {
+    width: 14px; height: 14px; border-radius: 50%; background: var(--glow);
+    margin: 0 auto 2.5rem; box-shadow: 0 0 0 10px rgba(246, 220, 200, 0.08), 0 0 50px rgba(246, 220, 200, 0.5);
+  }
+  h1 { font-family: ui-serif, "New York", Georgia, serif; font-weight: 400; font-size: clamp(28px, 5vw, 42px); line-height: 1.2; text-wrap: balance; }
+  p { color: var(--muted); margin-top: 0.9rem; max-width: 34rem; margin-inline: auto; }
+  b { color: var(--glow); font-weight: 500; }
+</style>
+</head>
+<body>
+  <main>
+    <div class="point"></div>
+    <h1>You closed <b id="site">that site</b>.</h1>
+    <p>This tab is free for whatever you meant to do.</p>
+  </main>
+  <script>
+    const site = decodeURIComponent(location.hash.slice(1));
+    if (/^[a-z0-9.-]+$/i.test(site)) { document.getElementById("site").textContent = site; document.title = `${site} closed by Defixum`; }
+  </script>
+</body>
+</html>

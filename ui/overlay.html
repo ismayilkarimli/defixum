@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Defixum pause</title>
+<style>
+  :root {
+    --glow: #f6dcc8;
+    --glow-soft: rgba(246, 220, 200, 0.28);
+    --text: #f4f1f8;
+    --muted: rgba(236, 232, 246, 0.66);
+    --iris: #8f8cf0;
+    --amber: #e5b25c;
+    --chip: rgba(255, 255, 255, 0.09);
+    --chip-hover: rgba(255, 255, 255, 0.17);
+    --ring: 300px;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body {
+    height: 100%;
+    background: transparent;
+    color: var(--text);
+    font: 15px/1.5 -apple-system, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+    cursor: default;
+    overflow: hidden;
+  }
+  body {
+    /* tint the system blur toward dusk */
+    background: radial-gradient(120% 90% at 50% 38%, rgba(54, 48, 96, 0.55), rgba(16, 15, 34, 0.82) 70%);
+    display: grid;
+    place-items: center;
+  }
+  main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    max-width: 40rem;
+    padding: 2rem 1.5rem;
+    opacity: 0;
+    transition: opacity 400ms ease;
+  }
+  main.in { opacity: 1; }
+
+  .breath {
+    position: relative;
+    width: var(--ring);
+    height: var(--ring);
+    display: grid;
+    place-items: center;
+    margin-bottom: 2.25rem;
+  }
+  .halo, .core {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+  }
+  .halo {
+    background: radial-gradient(circle, var(--glow-soft) 0%, rgba(246, 220, 200, 0) 68%);
+    transform: scale(0.72);
+  }
+  .core {
+    inset: 18%;
+    border: 3px solid var(--glow);
+    box-shadow: 0 0 40px rgba(246, 220, 200, 0.25), inset 0 0 30px rgba(246, 220, 200, 0.12);
+    transform: scale(0.62);
+  }
+  .breathing .halo { animation: halo 8s ease-in-out infinite; }
+  .breathing .core { animation: core 8s ease-in-out infinite; }
+  @keyframes core { 0%, 100% { transform: scale(0.62); } 50% { transform: scale(1); } }
+  @keyframes halo { 0%, 100% { transform: scale(0.72); opacity: .6; } 50% { transform: scale(1.12); opacity: 1; } }
+  .settled .core { transform: scale(0.8); transition: transform 900ms ease; }
+  .settled .halo { transform: scale(0.9); transition: transform 900ms ease; }
+  .stopped .core { border-color: var(--amber); box-shadow: 0 0 40px rgba(229, 178, 92, 0.22); transform: scale(0.8); }
+  .stopped .halo { background: radial-gradient(circle, rgba(229, 178, 92, 0.18) 0%, rgba(229, 178, 92, 0) 68%); transform: scale(0.9); }
+
+  .readout {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .count {
+    font-family: ui-rounded, -apple-system, system-ui, sans-serif;
+    font-size: 64px;
+    font-weight: 300;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  .cue {
+    font-size: 12px;
+    min-height: 1.5em;
+    color: var(--muted);
+    transition: opacity 600ms ease;
+  }
+
+  h1 {
+    font-family: ui-serif, "New York", Georgia, serif;
+    font-weight: 400;
+    font-size: 34px;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+  .site { color: var(--glow); }
+  .detail {
+    margin-top: 0.75rem;
+    color: var(--muted);
+    font-size: 15px;
+    max-width: 32rem;
+    text-wrap: pretty;
+  }
+  .detail .over { color: var(--amber); }
+
+  .actions {
+    margin-top: 2.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+    align-items: center;
+  }
+  button {
+    font: inherit;
+    color: inherit;
+    border: 0;
+    border-radius: 999px;
+    padding: 0.7rem 1.3rem;
+    cursor: pointer;
+    transition: background 150ms ease, transform 150ms ease, opacity 300ms ease;
+  }
+  button:focus-visible { outline: 2px solid var(--iris); outline-offset: 3px; }
+  button:active { transform: scale(0.97); }
+  .primary {
+    background: var(--glow);
+    color: #241f3d;
+    font-weight: 600;
+  }
+  .primary:hover { background: #fff0e4; }
+  .later {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+    color: var(--muted);
+    font-size: 14px;
+    transition: opacity 500ms ease;
+  }
+  .later { flex-wrap: wrap; justify-content: center; min-height: 38px; }
+  .later span { margin-right: 0.35rem; }
+  .later button {
+    background: var(--chip);
+    padding: 0.55rem 0.95rem;
+    font-size: 14px;
+    color: var(--text);
+  }
+  .later button:hover { background: var(--chip-hover); }
+  .later[hidden] { visibility: hidden; }
+  .waiting .later { opacity: 0; pointer-events: none; }
+  .error { margin-top: 1rem; font-size: 13px; color: var(--amber); min-height: 1.2em; }
+  .hint { position: fixed; bottom: 2rem; left: 0; right: 0; text-align: center; font-size: 12px; color: rgba(236, 232, 246, 0.4); }
+
+  @media (max-height: 700px) { :root { --ring: 220px; } h1 { font-size: 28px; } }
+  @media (prefers-reduced-motion: reduce) {
+    .breathing .halo, .breathing .core { animation: none; }
+    .core { transform: scale(0.8); }
+    main { transition: none; }
+  }
+</style>
+</head>
+<body>
+<main id="main" aria-live="polite">
+  <div class="breath" id="breath">
+    <div class="halo"></div>
+    <div class="core"></div>
+    <div class="readout">
+      <div class="count" id="count"></div>
+      <div class="cue" id="cue"></div>
+    </div>
+  </div>
+  <h1 id="title"></h1>
+  <p class="detail" id="detail"></p>
+  <div class="actions">
+    <button class="primary" id="back">Close the tab</button>
+    <div class="later" id="later">
+      <span>or open it for</span>
+    </div>
+  </div>
+  <p class="error" id="error" role="alert"></p>
+</main>
+<p class="hint">Press Esc to close the tab</p>
+
+<script>
+  const tauri = window.__TAURI__ || { core: { invoke: async () => null }, event: { listen: async () => {} } };
+  const { invoke } = tauri.core;
+  const { listen } = tauri.event;
+  const $ = (id) => document.getElementById(id);
+  let timer = null;
+  let current = null;
+
+  const ordinal = (n) => ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth"][n - 1] || `${n}th`;
+  const mins = (m) => `${m} minute${m === 1 ? "" : "s"}`;
+
+  function detailText(i) {
+    const parts = [];
+    const opens = i.opens_today;
+    if (i.reason === "pause" || i.reason === "expired") {
+      if (i.daily_opens) {
+        const left = Math.max(i.daily_opens - opens, 0);
+        parts.push(left === 1 ? "This is your last open for today." : `You have ${left} of ${i.daily_opens} opens left today.`);
+      } else if (opens > 0) {
+        parts.push(`You've opened it ${opens === 1 ? "once" : opens + " times"} today.`);
+      } else {
+        parts.push("You haven't opened it yet today.");
+      }
+      if (i.daily_minutes) parts.push(`${i.minutes_today} of ${i.daily_minutes} minutes used.`);
+      else if (i.minutes_today > 0) parts.push(`${mins(i.minutes_today)} so far.`);
+    } else if (i.reason === "open_limit") {
+      parts.push(`You've used all ${i.daily_opens} opens for today. It opens again tomorrow.`);
+    } else if (i.reason === "time_limit") {
+      parts.push(`You've spent your ${mins(i.daily_minutes)} for today. It opens again tomorrow.`);
+    } else if (i.reason === "blocked") {
+      parts.push(`Your “${i.rule_name}” rule is keeping it closed.`);
+    }
+    return parts.join(" ");
+  }
+
+  function siteSpan(site) {
+    const s = document.createElement("span");
+    s.className = "site";
+    s.textContent = site || "This site";
+    return s;
+  }
+
+  function setTitle(before, site, after) {
+    const t = $("title");
+    t.replaceChildren(before, siteSpan(site), after);
+  }
+
+  function show(i) {
+    current = i;
+    clearInterval(timer);
+    $("error").textContent = "";
+    const main = $("main"), breath = $("breath");
+    const canContinue = i.reason === "pause" || i.reason === "expired";
+    breath.className = "breath";
+    main.classList.remove("waiting");
+
+    // continue buttons
+    const later = $("later");
+    later.querySelectorAll("button").forEach((b) => b.remove());
+    later.hidden = !canContinue;
+    if (canContinue) {
+      for (const m of i.session_options) {
+        const b = document.createElement("button");
+        b.textContent = `${m} min`;
+        b.addEventListener("click", () => cont(m));
+        later.appendChild(b);
+      }
+    }
+
+    $("detail").textContent = detailText(i);
+
+    if (!canContinue) {
+      breath.classList.add("stopped");
+      $("count").textContent = "";
+      $("cue").textContent = "";
+      if (i.reason === "blocked") setTitle("", i.site, ` is off ${i.until ? "until " + i.until : "right now"}.`);
+      else setTitle("That's enough ", i.site, " for today.");
+      $("back").focus();
+      requestAnimationFrame(() => main.classList.add("in"));
+      return;
+    }
+
+    // the pause
+    main.classList.add("waiting");
+    breath.classList.add("breathing");
+    if (i.reason === "expired") setTitle("Your time on ", i.site, " is up.");
+    else setTitle("", i.site, " can wait a few seconds.");
+    const started = performance.now();
+    const total = i.pause_seconds;
+    const tick = () => {
+      const elapsed = (performance.now() - started) / 1000;
+      const left = Math.max(Math.ceil(total - elapsed), 0);
+      $("count").textContent = left > 0 ? left : "";
+      $("cue").textContent = left > 0 ? (elapsed % 8 < 4 ? "Breathe in" : "Breathe out") : "";
+      if (left === 0) {
+        clearInterval(timer);
+        breath.classList.remove("breathing");
+        breath.classList.add("settled");
+        main.classList.remove("waiting");
+        if (i.reason === "expired") setTitle("Your time on ", i.site, " is up. Another round?");
+        else setTitle("Still want ", i.site, "?");
+        $("back").focus();
+      }
+    };
+    tick();
+    timer = setInterval(tick, 200);
+    $("back").focus();
+    requestAnimationFrame(() => main.classList.add("in"));
+  }
+
+  async function cont(m) {
+    try { await invoke("overlay_continue", { minutes: m }); }
+    catch (e) { $("error").textContent = String(e); }
+  }
+
+  async function back() {
+    try { await invoke("overlay_back"); }
+    catch (e) { $("error").textContent = String(e); }
+  }
+
+  $("back").addEventListener("click", back);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") back(); });
+
+  listen("intercept", (e) => show(e.payload));
+  listen("dismiss", () => { clearInterval(timer); current = null; $("main").classList.remove("in"); });
+  invoke("overlay_state").then((i) => { if (i) show(i); });
+
+  // test hook: overlay.html?demo=pause|expired|blocked|open_limit|time_limit
+  const demo = new URLSearchParams(location.search).get("demo");
+  if (demo && !window.__TAURI__) document.documentElement.style.background = "linear-gradient(135deg, #3a2f2a, #6b4a3a 40%, #1f2a3d)";
+  if (demo) show({ rule_name: "Social & video", site: "youtube.com", reason: demo, pause_seconds: 6, opens_today: 2, minutes_today: 12, daily_opens: 4, daily_minutes: 30, session_options: [2, 5, 15], until: demo === "blocked" ? "17:00" : null });
+</script>
+</body>
+</html>
