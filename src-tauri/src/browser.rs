@@ -242,6 +242,57 @@ pub fn navigate(t: &Target, url: &str, main: &MainRunner) -> bool {
     }
 }
 
+/// Goes back one page in the active tab's history, if it has any: the way out of a site that
+/// was reached by following a link in the same tab. Returns whether it went back, so the
+/// caller can close the tab instead. Both browser families are driven through Accessibility,
+/// which also tells us (enabled or not) whether there is anywhere to go back to.
+pub fn go_back(t: &Target, main: &MainRunner) -> bool {
+    if !macos::ax_trusted() {
+        return false;
+    }
+    let Some(app) = Element::application(t.pid) else { return false };
+    match t.kind {
+        Kind::Ax => {
+            // Firefox-family browsers have no Back menu item; the toolbar button carries the
+            // DOM id "back-button" and is disabled when the tab has no history.
+            let Some(window) = app.element("AXFocusedWindow").or_else(|| app.element("AXMainWindow")) else {
+                return false;
+            };
+            let button = window.find(
+                400,
+                &|e, role| {
+                    role == "AXButton"
+                        && e.string("AXDOMIdentifier").as_deref() == Some("back-button")
+                        && e.flag("AXEnabled") == Some(true)
+                },
+                &|role| role != "AXWebArea",
+            );
+            button.is_some_and(|b| b.press() == 0)
+        }
+        Kind::Safari | Kind::Chromium => {
+            // History > Back (Cmd+[), disabled when there is nothing to go back to. The menu
+            // shows the shortcut as typed on the current layout, hence the lookup.
+            let Some(bar) = app.element("AXMenuBar") else { return false };
+            let layout_key = match main(Box::new(|| Script::Ok(macos::key_char(33).unwrap_or_default()))) {
+                Some(Script::Ok(c)) => c,
+                _ => String::new(),
+            };
+            let item = bar.find(
+                600,
+                &|e, role| {
+                    role == "AXMenuItem"
+                        && e.string("AXMenuItemCmdChar")
+                            .is_some_and(|c| c == "[" || macos::same_key(&c, &layout_key))
+                        && e.int("AXMenuItemCmdModifiers") == Some(0)
+                        && e.flag("AXEnabled") == Some(true)
+                },
+                &|role| matches!(role, "AXMenuBar" | "AXMenuBarItem" | "AXMenu" | "AXMenuItem"),
+            );
+            item.is_some_and(|i| i.press() == 0)
+        }
+    }
+}
+
 /// Closes the active tab without going through the page. Safari and Chromium are asked by
 /// AppleScript; the Accessibility path presses the app's own "Close Tab" menu item, which is
 /// the one bound to Cmd+W, so it works in any language. The browser should be frontmost.

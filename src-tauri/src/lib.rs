@@ -725,11 +725,14 @@ async fn overlay_back(app: AppHandle, core: State<'_, Shared>, runner: State<'_,
     overlay_hide(&app);
     macos::activate(target.pid);
     let runner = runner.0.clone();
-    // Close the tab; if the browser won't (no permission, no Close Tab item, script error), send
-    // it to the calm page instead so the site still goes away.
+    // Leave the site by going back to the page the tab came from; a tab with no history is
+    // closed. If the browser won't (no permission, no menu item, script error), send it to the
+    // calm page instead so the site still goes away.
     let how = tauri::async_runtime::spawn_blocking(move || {
         std::thread::sleep(Duration::from_millis(250));
-        if browser::close_tab(&target, runner.as_ref()) {
+        if browser::go_back(&target, runner.as_ref()) {
+            "went back"
+        } else if browser::close_tab(&target, runner.as_ref()) {
             "closed"
         } else if browser::navigate(&target, &calm, runner.as_ref()) {
             "calm page"
@@ -740,6 +743,7 @@ async fn overlay_back(app: AppHandle, core: State<'_, Shared>, runner: State<'_,
     .await
     .unwrap_or("none");
     match how {
+        "went back" => log("went back to the previous page"),
         "closed" => log("closed the tab"),
         "calm page" => log("could not close the tab, sent it to the calm page"),
         _ => log("could not close or navigate the tab away"),
