@@ -105,11 +105,22 @@ pub struct Settings {
     pub sky: String,
     /// Rain, snow, fog and cloud on the pause screen follow the weather outside.
     pub weather: bool,
+    /// Full-screen reminders before the sleep time (see `bedtime`). Off until asked for.
+    pub bedtime: bool,
+    /// The sleep time, "HH:MM" on a 24-hour clock.
+    pub bedtime_at: String,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { session_options: vec![2, 5, 15], idle_seconds: 60, sky: "time".into(), weather: true }
+        Settings {
+            session_options: vec![2, 5, 15],
+            idle_seconds: 60,
+            sky: "time".into(),
+            weather: true,
+            bedtime: false,
+            bedtime_at: "23:00".into(),
+        }
     }
 }
 
@@ -360,6 +371,14 @@ mod tests {
         let r: Rule = serde_json::from_str(r#"{"countdown":"drain","prompts":["cost","commit"]}"#).unwrap();
         assert_eq!(r.countdown, Countdown::Drain);
         assert_eq!(r.prompts, vec![PromptKind::Cost, PromptKind::Commit]);
+    }
+
+    #[test]
+    fn old_settings_get_bedtime_off() {
+        let c: Config = serde_json::from_str(r#"{"settings":{"sky":"dark"}}"#).unwrap();
+        assert_eq!(c.settings.sky, "dark");
+        assert!(!c.settings.bedtime);
+        assert_eq!(c.settings.bedtime_at, "23:00");
     }
 
     #[test]

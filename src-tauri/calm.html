@@ -5,37 +5,172 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tab closed by Defixum</title>
 <style>
-  :root { --bg1: #1d1c36; --bg2: #3a3160; --glow: #f6dcc8; --text: #f1eef7; --muted: rgba(236, 232, 246, 0.62); }
+  /* Fallback page for when Defixum cannot close the tab itself. It borrows the pause screen's
+     sky and spruce line; colours are set from the clock by the script below. */
+  :root {
+    --sky-top: #a5c0bf;
+    --horizon: #dfe8de;
+    --near: #0a1c15;
+    --far: #6f8a80;
+    --ink: #10221a;
+    --muted: #24362c;
+    --site: #2a6644;
+    --lift: 0 0 22px rgba(236, 242, 232, 0.55);
+    --display: Optima, "Optima Nova", Candara, "Segoe UI", sans-serif;
+  }
+  :root.night {
+    --ink: #e8f0e5;
+    --muted: #cfdacb;
+    --site: #cfe2a4;
+    --lift: 0 1px 14px rgba(0, 8, 6, 0.45);
+  }
   * { margin: 0; box-sizing: border-box; }
-  html, body { height: 100%; }
+  html, body { height: 100%; overflow: hidden; }
   body {
-    background: radial-gradient(110% 80% at 50% 100%, #8a5a59 0%, var(--bg2) 45%, var(--bg1) 100%);
-    color: var(--text);
-    font: 16px/1.55 -apple-system, system-ui, sans-serif;
+    background: linear-gradient(to bottom, var(--sky-top), var(--horizon) 68%);
+    color: var(--ink);
+    font: 15px/1.5 -apple-system, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
     display: grid;
     place-items: center;
     text-align: center;
-    padding: 2rem 1rem;
-    -webkit-font-smoothing: antialiased;
+    padding: 2rem 1rem 22vh;
+    animation: in 700ms ease both;
   }
-  .point {
-    width: 14px; height: 14px; border-radius: 50%; background: var(--glow);
-    margin: 0 auto 2.5rem; box-shadow: 0 0 0 10px rgba(246, 220, 200, 0.08), 0 0 50px rgba(246, 220, 200, 0.5);
+  main { position: relative; z-index: 1; }
+  h1 {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: clamp(28px, 5vw, 36px);
+    line-height: 1.18;
+    text-wrap: balance;
+    text-shadow: var(--lift);
   }
-  h1 { font-family: ui-serif, "New York", Georgia, serif; font-weight: 400; font-size: clamp(28px, 5vw, 42px); line-height: 1.2; text-wrap: balance; }
-  p { color: var(--muted); margin-top: 0.9rem; max-width: 34rem; margin-inline: auto; }
-  b { color: var(--glow); font-weight: 500; }
+  .site { color: var(--site); }
+  p { color: var(--muted); margin: 1rem auto 0; max-width: 30rem; text-shadow: var(--lift); }
+  .trees { position: fixed; left: 0; bottom: 0; width: 100%; height: 30vh; display: block; }
+  @keyframes in { from { opacity: 0; } to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { body { animation: none; } }
 </style>
 </head>
 <body>
+  <svg class="trees" id="trees" aria-hidden="true" preserveAspectRatio="none">
+    <path id="far" fill="var(--far)"/>
+    <path id="near" fill="var(--near)"/>
+  </svg>
   <main>
-    <div class="point"></div>
-    <h1>You closed <b id="site">that site</b>.</h1>
+    <h1>You closed <span class="site" id="site">that site</span>.</h1>
     <p>This tab is free for whatever you meant to do.</p>
   </main>
   <script>
     const site = decodeURIComponent(location.hash.slice(1));
     if (/^[a-z0-9.-]+$/i.test(site)) { document.getElementById("site").textContent = site; document.title = `${site} closed by Defixum`; }
+
+    // ---- a copy of the pause screen's spruce line and sky (ui/forest.js) ----
+    function rng(seed) {
+      let a = seed >>> 0;
+      return () => {
+        a = (a + 0x6d2b79f5) >>> 0;
+        let t = a;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    function spruce(x, base, w, h, r) {
+      const tiers = 5 + Math.floor(r() * 4);
+      const lean = (r() - 0.5) * w * 0.08;
+      const left = [];
+      for (let i = 0; i < tiers; i++) {
+        const t = i / tiers;
+        const y = base - h * t * 0.94;
+        const half = (w / 2) * Math.pow(1 - t, 0.85) * (0.9 + r() * 0.2);
+        const notchY = y - (h * 0.94) / tiers * (0.55 + r() * 0.2);
+        left.push([x - half + lean * t, y], [x - half * 0.32 + lean * t, notchY]);
+      }
+      const apex = [x + lean, base - h];
+      const right = left.map(([px, py]) => [2 * (x + lean * ((base - py) / h)) - px, py]).reverse();
+      const pts = [[x - w * 0.05, base + 2], ...left, apex, ...right, [x + w * 0.05, base + 2]];
+      return "M" + pts.map(([px, py]) => `${px.toFixed(1)} ${py.toFixed(1)}`).join("L") + "Z";
+    }
+
+    function treeline({ width, height, base, minH, maxH, minW, maxW, seed, hills = 0, spacing = [0.32, 0.72] }) {
+      const r = rng(seed);
+      const f1 = (2 + r() * 2) / width, f2 = (5 + r() * 4) / width, p1 = r() * 7, p2 = r() * 7;
+      const ground = (x) => base - hills * (0.6 * Math.sin(x * f1 * Math.PI + p1) + 0.4 * Math.sin(x * f2 * Math.PI + p2));
+      let d = `M0 ${height}`;
+      for (let x = 0; x <= width; x += width / 48) d += `L${x.toFixed(1)} ${ground(x).toFixed(1)}`;
+      d += `L${width} ${ground(width).toFixed(1)}L${width} ${height}Z`;
+      let x = -maxW * r();
+      while (x < width + maxW) {
+        const w = minW + (maxW - minW) * r();
+        const h = minH + (maxH - minH) * Math.pow(r(), 1.6);
+        d += spruce(x, ground(x) + r() * minH * 0.15, w, h, r);
+        x += w * (spacing[0] + r() * (spacing[1] - spacing[0]));
+      }
+      return d;
+    }
+
+    const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+    const toHex = (c) => "#" + c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
+    const mix = (a, b, t) => toHex(hex(a).map((v, i) => v + (hex(b)[i] - v) * t));
+    function luminance(h) {
+      const [r, g, b] = hex(h).map((v) => {
+        v /= 255;
+        return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    }
+
+    // [hour, top, horizon]
+    const SKY = [
+      [0, "#07131a", "#22403c"],
+      [4.5, "#0b1b22", "#2a4542"],
+      [6.5, "#8aa3a9", "#d6dccf"],
+      [9.5, "#a5c0bf", "#dfe8de"],
+      [16, "#a0bcb9", "#dce5d8"],
+      [17.4, "#a9b7a4", "#e3d6a6"],
+      [18.5, "#c4ad80", "#e8c48a"],
+      [20.25, "#20364a", "#5c6e69"],
+      [22, "#07131a", "#22403c"],
+      [24, "#07131a", "#22403c"],
+    ];
+
+    function sky(hour) {
+      let i = 0;
+      while (i < SKY.length - 2 && hour >= SKY[i + 1][0]) i++;
+      const [h0, t0, b0] = SKY[i], [h1, t1, b1] = SKY[i + 1];
+      const t = Math.min(Math.max((hour - h0) / (h1 - h0), 0), 1);
+      const top = mix(t0, t1, t), horizon = mix(b0, b1, t);
+      const light = luminance(mix(top, horizon, 0.5));
+      const near = mix("#020806", "#0a1c15", Math.min(light / 0.4, 1));
+      return { top, horizon, near, day: luminance(mix(top, horizon, 0.6)) > 0.2 };
+    }
+
+    const d = new Date();
+    const s = sky(d.getHours() + d.getMinutes() / 60);
+    const root = document.documentElement;
+    root.style.setProperty("--sky-top", s.top);
+    root.style.setProperty("--horizon", s.horizon);
+    root.style.setProperty("--near", s.near);
+    root.style.setProperty("--far", mix(s.horizon, s.near, 0.5));
+    root.classList.toggle("night", !s.day);
+
+    // one fixed forest per day, redrawn to fit the window
+    const seed = (d.getFullYear() * 400 + d.getMonth() * 32 + d.getDate()) * 97 + 7;
+    function draw() {
+      const svg = document.getElementById("trees");
+      const W = svg.clientWidth, H = svg.clientHeight;
+      if (!W || !H) return;
+      svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+      const line = (base, minH, maxH, minW, maxW, sd, hills) =>
+        treeline({ width: W, height: H, base: H * base, minH: H * minH, maxH: H * maxH, minW: H * minW, maxW: H * maxW, seed: sd, hills: H * hills });
+      document.getElementById("far").setAttribute("d", line(0.82, 0.12, 0.45, 0.07, 0.13, seed, 0.05));
+      document.getElementById("near").setAttribute("d", line(1, 0.05, 0.62, 0.15, 0.26, seed + 131, 0.02));
+    }
+    draw();
+    addEventListener("resize", draw);
   </script>
 </body>
 </html>

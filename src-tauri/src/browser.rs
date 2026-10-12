@@ -83,6 +83,19 @@ fn script_set(t: &Target, url: &str) -> String {
     )
 }
 
+/// Closes the active tab. If it is the window's only tab, a fresh empty tab is opened first so
+/// the window (and the browser) stays and the user lands on the normal new-tab page.
+fn script_close(t: &Target) -> String {
+    let safari = t.kind == Kind::Safari;
+    let tab = if safari { "current tab" } else { "active tab" };
+    // Safari does not switch to a tab made by script; Chromium browsers do.
+    let focus = if safari { " set current tab of win to newTab\n" } else { "" };
+    format!(
+        "with timeout of 2 seconds\n tell application id \"{}\"\n if (count of windows) is 0 then error \"no window\"\n set win to front window\n set oldTab to {tab} of win\n if (count of tabs of win) > 1 then\n close oldTab\n else\n set newTab to make new tab at end of tabs of win\n{focus} close oldTab\n end if\n end tell\nend timeout",
+        t.bundle
+    )
+}
+
 pub fn script_probe(bundle: &str, kind: Kind) -> String {
     script_get(&Target { bundle: bundle.into(), pid: 0, kind })
 }
@@ -225,6 +238,41 @@ pub fn navigate(t: &Target, url: &str, main: &MainRunner) -> bool {
             std::thread::sleep(Duration::from_millis(80));
             macos::press_key(t.pid, 36); // Return
             true
+        }
+    }
+}
+
+/// Closes the active tab without going through the page. Safari and Chromium are asked by
+/// AppleScript; the Accessibility path presses the app's own "Close Tab" menu item, which is
+/// the one bound to Cmd+W, so it works in any language. The browser should be frontmost.
+pub fn close_tab(t: &Target, main: &MainRunner) -> bool {
+    match t.kind {
+        Kind::Safari | Kind::Chromium => {
+            let src = script_close(t);
+            matches!(main(Box::new(move || macos::applescript(&src))), Some(Script::Ok(_)))
+        }
+        Kind::Ax => {
+            let Some(app) = Element::application(t.pid) else { return false };
+            let Some(bar) = app.element("AXMenuBar") else { return false };
+            // The menu reports the shortcut as typed on the current layout (Ü for W on Azeri).
+            // The layout lookup is main-thread only, so it goes through the same runner as scripts.
+            let layout_w = match main(Box::new(|| Script::Ok(macos::key_char(13).unwrap_or_default()))) {
+                Some(Script::Ok(c)) => c,
+                _ => String::new(),
+            };
+            // Only the menu bar is searched; menu items are reachable without opening a menu.
+            let item = bar.find(
+                400,
+                &|e, role| {
+                    role == "AXMenuItem"
+                        && e.string("AXMenuItemCmdChar").is_some_and(|c| macos::same_key(&c, "w") || macos::same_key(&c, &layout_w))
+                        // 0 is Command alone; Shift+Cmd+W (Close Window) is 1
+                        && e.int("AXMenuItemCmdModifiers") == Some(0)
+                        && e.flag("AXEnabled") == Some(true)
+                },
+                &|role| matches!(role, "AXMenuBar" | "AXMenuBarItem" | "AXMenu" | "AXMenuItem"),
+            );
+            item.is_some_and(|i| i.press() == 0)
         }
     }
 }

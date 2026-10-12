@@ -354,6 +354,8 @@ The muted words on the pause are solid colours: #24362c by day and #cfdacb by ni
 
 **Settings window.** A fixed 64px title bar (sky strip, centred segmented tabs, tree line 30px tall along its bottom edge, drag region) above a full-height content area. The Rules tab is a two-column grid: a 260px rule list on Lichen Panel with a hairline right border, and an editor with 30px top and 44px side padding and a 640px max content width. Activity and Setup use a centred 760px column with 38px/44px/52px padding. Within the editor, each field is separated by a hairline top border with 20px above and 22px below its content; settings rows are 14px by 16px.
 
+**Bedtime screen.** The pause's layout without the typing box and minute chips: disc, headline and detail centred over open sky in the same single 40px gap, the floor holding two actions (lit pill, then chip) and a hint line.
+
 **Pause overlay.** Full-bleed and fixed. The floor band takes `clamp(170px, 21vh, 230px)` at the bottom; the sky region above it centres a single column (ring, headline, sentence, answer box, detail) with one visible gap of 40px between every pair of blocks (32px when the screen is 860px tall or less). The disc box is 300px (220px under 720px of height; 200px while typing on short screens).
 
 ### Named Rules
@@ -434,6 +436,15 @@ Seven columns, 14px apart, up to 190px tall. Each bar (max 46px wide, 7px/2px co
 - **Fill / Drain:** a 1.4px stroked ring at 64% of the box, starting at 12 o'clock, in the ring mark colour over a 22% track; fill grows clockwise, drain retracts to 12.
 - **Settled:** the disc rests at 0.8 scale and the ring dims to 55%. **Blocked:** a low amber sun with no numerals.
 - **Reduced motion:** no breathing or drift; the disc holds at 0.8 and the ring steps once per second.
+
+### Bedtime screen
+The bedtime reminder is the pause's forest in a second full-screen window (`overlay.html?mode=bedtime`), so the sky, weather, life and tree lines are the same code. It appears over every app, one window level above the pause, and returns the person to the app they were in when it goes.
+- **Disc:** the sun or moon at rest at full size (no breathing), showing the time left in a 64px numeral over a 14px cue: `2` hours, then `60`, `30`, `15` and `5` minutes, and `now` at bedtime. It follows the real clock every 30 seconds; a reminder left on screen for more than its five minutes stops saying its own mark and shows the minutes actually left.
+- **Words:** the display headline ("Bedtime in 2 hours.", "Bedtime in 1 hour.", "Bedtime in 30 minutes.", "It's bedtime.") and one muted detail line: the planned time plus at most one gentle suggestion that fits the moment ("A good time to start winding down.", "Maybe put the screens away soon.", "Good night."). No exclamation marks, no guilt.
+- **Floor:** the lichen "Got it" pill (Esc and Return do the same) and one translucent chip, "Don't remind again today", with the footer hint "Press Esc to dismiss". The minute chips, answer field and unlock hint of the pause are not shown.
+- **Settings row:** Setup, General, "Bedtime reminder": a switch and a time field (Birch Surface, `field-line` border, tabular figures, 45% when the switch is off), 12px apart.
+- **Schedule:** off by default. Each reminder is due for five minutes from its moment; one that was missed by more than that is skipped, never replayed. Switching it on or moving the time treats the moments already past tonight as done, so turning it on at 22:10 for 23:00 doesn't open with the one-hour reminder.
+- **Reduced motion:** nothing extra moves; the entry animation, birds, drift and rain follow the same rules as the pause.
 
 ### Pause floor actions
 - **Close the tab:** Lichen pill, Lichen Ink text at 600, 0.7rem by 1.4rem, floor lift; hover Lichen Lit, press scales to 0.97, focus is a 2px lichen outline offset 3px.

@@ -285,6 +285,11 @@
   .stopped .core { transform: scale(0.8); }
   .stopped .halo { transform: scale(0.9); }
 
+  /* bedtime: the sun or moon rests at full size (the breath's in-breath) and shows the time left */
+  .bedtime .breath { margin-block: calc(var(--ring) * -0.18); }
+  .bedtime .breath .core { transform: none; }
+  .bedtime .breath .halo { transform: scale(1.05); }
+
   /* fill / drain: a progress ring where the breathing circle would be */
   .ring {
     display: none;
@@ -545,6 +550,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
     <div class="later" id="later">
       <span>or open it for</span>
     </div>
+    <div class="later" id="mute-row" hidden>
+      <button id="mute">Don't remind again today</button>
+    </div>
   </div>
   <p class="error" id="error" role="alert"></p>
   <p class="hint">Press Esc or ⌘W to close the tab</p>
@@ -563,6 +571,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   // user comes back to a pause they already sat through, the half-typed sentence is still here.
   let draft = null;
   const q = new URLSearchParams(location.search);
+  // the bedtime reminder is this same page in its own window
+  const bedtimeMode = q.get("mode") === "bedtime";
 
   const ordinal = (n) => ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth"][n - 1] || `${n}th`;
   const mins = (m) => `${m} minute${m === 1 ? "" : "s"}`;
@@ -1189,7 +1199,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
     if (current && paint()) startLife();
   }, 60000);
 
-  $("back").addEventListener("click", back);
+  $("back").addEventListener("click", () => (bedtimeMode ? bedtimeOk() : back()));
   // the point is to write it out, so no pasting or dropping text in
   const typedBox = $("typed");
   for (const type of ["paste", "drop", "dragover"]) typedBox.addEventListener(type, (e) => e.preventDefault());
@@ -1210,23 +1220,114 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   $("unlock-hint").addEventListener("animationend", (e) => e.target.classList.remove("nudge"));
   // Esc or Cmd+W closes the tab. The app menu has no Close Window item, so the page sees Cmd+W.
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") back();
+    const close = bedtimeMode ? bedtimeOk : back;
+    if (e.key === "Escape") close();
+    else if (bedtimeMode && e.key === "Enter" && document.activeElement === document.body) close();
     else if (e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "w") {
       e.preventDefault();
-      back();
+      close();
     }
   });
 
-  listen("intercept", (e) => show(e.payload));
-  listen("dismiss", () => { clearInterval(timer); cancelAnimationFrame(raf); stopLife(); stopPrecip(); current = null; document.body.classList.remove("in", "waiting", "breathing"); });
-  invoke("overlay_state").then((i) => { if (i) show(i); });
+  if (bedtimeMode) {
+    listen("bedtime", (e) => showBedtime(e.payload));
+    listen("bedtime_hide", hideBedtime);
+    invoke("bedtime_state").then((p) => { if (p) showBedtime(p); });
+  } else {
+    listen("intercept", (e) => show(e.payload));
+    listen("dismiss", () => { clearInterval(timer); cancelAnimationFrame(raf); stopLife(); stopPrecip(); current = null; document.body.classList.remove("in", "waiting", "breathing"); });
+    invoke("overlay_state").then((i) => { if (i) show(i); });
+  }
+
+  // ---------- bedtime reminder ----------
+  // The same forest, with a still sun or moon showing the time left before the sleep time. The
+  // window is opened by the app (overlay.html?mode=bedtime) at 2 h, 1 h, 30, 15, 5 and 0 minutes.
+  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const setText = (id, text) => { const n = $(id); if (n.textContent !== text) n.textContent = text; };
+  const BEDTIME_NOTES = [
+    [0, "Good night."],
+    [5, "Almost time. Lights low, screens down."],
+    [15, "Time to get ready for bed."],
+    [30, "Maybe put the screens away soon."],
+    [60, "Maybe wrap up what you're in the middle of."],
+    [Infinity, "A good time to start winding down."],
+  ];
+  let bedtimeTimer = null;
+
+  // The minutes the screen speaks of: the reminder's own mark while it is fresh, the real time left
+  // once it has been sitting there longer than its five minutes.
+  function bedtimeMinutes(p) {
+    const left = Math.max(Math.ceil((p.bedtime_ts * 1000 - Date.now()) / 60000), 0);
+    return p.offset > 0 && left > p.offset - 5 ? p.offset : left;
+  }
+
+  function renderBedtime() {
+    const p = current;
+    if (!p) return;
+    const m = bedtimeMinutes(p), hours = m >= 120 && m % 60 === 0;
+    setText("count", m === 0 ? "now" : String(hours ? m / 60 : m));
+    setText("cue", m === 0 ? "" : hours ? "hours" : m === 1 ? "minute" : "minutes");
+    setText("title", m === 0 ? "It's bedtime." : m === 60 ? "Bedtime in 1 hour." : `Bedtime in ${hours ? plural(m / 60, "hour") : plural(m, "minute")}.`);
+    setText("detail", `You planned to sleep at ${p.bedtime}. ${BEDTIME_NOTES.find(([max]) => m <= max)[1]}`);
+  }
+
+  function showBedtime(p) {
+    // each reminder walks into a different stretch of forest; an update keeps the one in view
+    if (!document.body.classList.contains("in")) sceneSeed = Math.floor(Math.random() * 2 ** 31);
+    current = p;
+    weatherNow = p.weather || null;
+    paint();
+    startLife();
+    $("breath").className = "breath settled";
+    document.body.classList.remove("waiting", "breathing");
+    renderBedtime();
+    clearInterval(bedtimeTimer);
+    bedtimeTimer = setInterval(renderBedtime, 30000);
+    $("back").focus();
+    requestAnimationFrame(() => document.body.classList.add("in"));
+  }
+
+  function hideBedtime() {
+    clearInterval(bedtimeTimer);
+    stopLife();
+    stopPrecip();
+    current = null;
+    document.body.classList.remove("in");
+  }
+
+  async function bedtimeOk() {
+    try { await invoke("bedtime_ok"); }
+    catch (e) { $("error").textContent = String(e); }
+  }
+
+  async function bedtimeMute() {
+    try { await invoke("bedtime_mute"); }
+    catch (e) { $("error").textContent = String(e); }
+  }
+
+  if (bedtimeMode) {
+    document.body.classList.add("bedtime");
+    document.title = "Defixum bedtime";
+    $("later").hidden = true;
+    $("commit").hidden = true;
+    $("back").textContent = "Got it";
+    $("mute-row").hidden = false;
+    $("mute").addEventListener("click", bedtimeMute);
+    document.querySelector(".hint").textContent = "Press Esc to dismiss";
+  }
 
   // test hook: overlay.html?demo=pause|expired|blocked|open_limit|time_limit
   //   &countdown=breathe|fill|drain   &prompt=reflect|cost|commit|none   &seconds=6
   //   &waited=1 (arrive with the countdown already served)   &hour=21.5 (light of that hour)
   //   &weather=clear|cloudy|overcast|fog|drizzle|rain|downpour|storm|snow   &wind=30 (km/h)
+  //   bedtime: overlay.html?mode=bedtime&demo=bedtime&minutes=30&hour=21&weather=clear (&at=23:00)
   const demo = q.get("demo");
-  if (demo) {
+  if (bedtimeMode && demo === "bedtime") {
+    const minutes = q.has("minutes") ? +q.get("minutes") : 30;
+    const when = new Date(Date.now() + minutes * 60000);
+    const clock = q.get("at") || `${String(when.getHours()).padStart(2, "0")}:${String(when.getMinutes()).padStart(2, "0")}`;
+    showBedtime({ offset: minutes, minutes_left: minutes, bedtime: clock, bedtime_ts: Math.floor(when.getTime() / 1000), sky: "time", weather: null });
+  } else if (demo && !bedtimeMode) {
     const site = "youtube.com";
     const prompts = {
       reflect: { kind: "reflect", text: `What were you about to do before you opened ${site}?`, sentence: null },

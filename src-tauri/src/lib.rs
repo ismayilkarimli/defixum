@@ -1,3 +1,4 @@
+mod bedtime;
 mod browser;
 mod macos;
 mod prompts;
@@ -5,7 +6,7 @@ mod rules;
 mod weather;
 
 use browser::{AxState, Fetch, MainRunner, Target};
-use chrono::{Local, Timelike};
+use chrono::{Local, TimeZone, Timelike};
 use prompts::Prompt;
 use rules::{Config, Countdown, DayStats, Reason, Stats};
 use serde::Serialize;
@@ -186,6 +187,10 @@ struct Core {
     last_prompt: Option<String>,
     /// bundle id → "ok" | "denied" | "error"
     browser_status: HashMap<String, &'static str>,
+    /// which bedtime reminders have been shown, and the night that was muted
+    bedtime_log: bedtime::Log,
+    /// the bedtime reminder on screen
+    bedtime_up: Option<BedtimeUp>,
     data_dir: PathBuf,
 }
 
@@ -203,6 +208,10 @@ impl Core {
         write_json(&self.data_dir.join("stats.json"), &self.stats);
         self.stats_dirty = false;
         self.stats_saved = Instant::now();
+    }
+
+    fn save_bedtime(&self) {
+        write_json(&self.data_dir.join("bedtime.json"), &self.bedtime_log);
     }
 
     fn calm_url(&self) -> String {
@@ -234,8 +243,8 @@ fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> Option<T> {
 
 // ---------- overlay window ----------
 
-fn overlay_show(app: &AppHandle, payload: &Intercept) {
-    let Some(w) = app.get_webview_window("overlay") else { return };
+/// Covers the monitor under the cursor (or the primary one) with the window.
+fn cover_monitor(app: &AppHandle, w: &WebviewWindow) {
     let monitor = app
         .cursor_position()
         .ok()
@@ -247,7 +256,10 @@ fn overlay_show(app: &AppHandle, payload: &Intercept) {
         let _ = w.set_size(*m.size());
         let _ = w.set_position(*m.position());
     }
-    let _ = app.emit_to("overlay", "intercept", payload);
+}
+
+/// Shows the window and makes its web view the key view.
+fn show_key(w: &WebviewWindow) {
     let _ = w.show();
     let _ = w.set_focus();
     // Without this the web view only gets keystrokes (Esc) after a click.
@@ -260,6 +272,13 @@ fn overlay_show(app: &AppHandle, payload: &Intercept) {
     });
 }
 
+fn overlay_show(app: &AppHandle, payload: &Intercept) {
+    let Some(w) = app.get_webview_window("overlay") else { return };
+    cover_monitor(app, &w);
+    let _ = app.emit_to("overlay", "intercept", payload);
+    show_key(&w);
+}
+
 fn overlay_hide(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("overlay") {
         let _ = app.emit_to("overlay", "dismiss", ());
@@ -267,12 +286,12 @@ fn overlay_hide(app: &AppHandle) {
     }
 }
 
-/// Float the overlay above everything, including other apps' full-screen spaces.
-fn raise_overlay(w: &WebviewWindow) {
+/// Float a full-screen window above everything, including other apps' full-screen spaces.
+fn raise_window(w: &WebviewWindow, level: isize) {
     use objc2_app_kit::{NSWindow, NSWindowCollectionBehavior};
     if let Ok(ptr) = w.ns_window() {
         let win: &NSWindow = unsafe { &*(ptr as *const NSWindow) };
-        win.setLevel(101); // NSPopUpMenuWindowLevel
+        win.setLevel(level);
         win.setCollectionBehavior(
             NSWindowCollectionBehavior::CanJoinAllSpaces
                 | NSWindowCollectionBehavior::FullScreenAuxiliary
@@ -288,6 +307,128 @@ fn open_dashboard(app: &AppHandle) {
         let _ = w.set_focus();
         let _ = app.emit_to("main", "refresh", ());
     }
+}
+
+// ---------- bedtime reminder ----------
+
+/// What the bedtime screen is told.
+#[derive(Clone, Serialize)]
+struct Bedtime {
+    /// which reminder: minutes before the sleep time, 0 at it
+    offset: u32,
+    minutes_left: i64,
+    /// the sleep time as set, "23:00"
+    bedtime: String,
+    /// unix seconds of the sleep time this reminder counts toward
+    bedtime_ts: i64,
+    sky: String,
+    /// the weather outside, when that setting is on and a recent reading exists
+    weather: Option<weather::Weather>,
+}
+
+/// The reminder on screen, and where to put the user back when it goes.
+struct BedtimeUp {
+    shown: Bedtime,
+    /// the night it belongs to, for "Don't remind again today"
+    night: String,
+    return_to: Option<i32>,
+}
+
+fn minutes_until(ts: i64) -> i64 {
+    (ts - Local::now().timestamp() + 59).div_euclid(60).max(0)
+}
+
+fn bedtime_show(app: &AppHandle, payload: &Bedtime) {
+    let Some(w) = app.get_webview_window("bedtime") else { return };
+    cover_monitor(app, &w);
+    let _ = app.emit_to("bedtime", "bedtime", payload);
+    show_key(&w);
+}
+
+/// Takes the reminder off screen and puts the user back in the app they were using. With `mute`,
+/// the rest of this night's reminders are off too.
+fn bedtime_dismiss(app: &AppHandle, core: &Shared, mute: bool) {
+    let (up, pause_up) = {
+        let mut c = core.lock().unwrap();
+        let Some(up) = c.bedtime_up.take() else { return };
+        if mute {
+            c.bedtime_log.mute(&up.night);
+            c.save_bedtime();
+        }
+        (up, c.intercept.is_some())
+    };
+    log(format!("bedtime reminder ({} min) {}", up.shown.offset, if mute { "muted for tonight" } else { "dismissed" }));
+    if let Some(w) = app.get_webview_window("bedtime") {
+        let _ = app.emit_to("bedtime", "bedtime_hide", ());
+        let _ = w.hide();
+    }
+    match up.return_to {
+        Some(pid) => macos::activate(pid),
+        // a pause was underneath: give it the keyboard back
+        None if pause_up => {
+            if let Some(w) = app.get_webview_window("overlay") {
+                show_key(&w);
+            }
+        }
+        None => {}
+    }
+}
+
+/// Shows the reminder that is due now, if there is one. Called every few seconds.
+fn bedtime_tick(app: &AppHandle, core: &Shared) {
+    let (payload, night) = {
+        let mut c = core.lock().unwrap();
+        let s = &c.config.settings;
+        if !s.bedtime {
+            return;
+        }
+        let Some(at) = bedtime::parse_time(&s.bedtime_at) else { return };
+        let Some(due) = bedtime::due(Local::now().naive_local(), at, &c.bedtime_log) else { return };
+        let Some(ts) = Local.from_local_datetime(&due.bedtime).earliest().map(|t| t.timestamp()) else { return };
+        let payload = Bedtime {
+            offset: due.offset,
+            minutes_left: minutes_until(ts),
+            bedtime: s.bedtime_at.clone(),
+            bedtime_ts: ts,
+            sky: s.sky.clone(),
+            weather: if s.weather { weather::current() } else { None },
+        };
+        c.bedtime_log.record(&due.night, due.offset);
+        c.save_bedtime();
+        (payload, due.night)
+    };
+    let own_pid = std::process::id() as i32;
+    let front = macos::frontmost().map(|f| f.pid).filter(|&p| p != own_pid);
+    {
+        let mut c = core.lock().unwrap();
+        // a newer reminder replaces one still on screen, which already knows where to return to
+        let return_to = c.bedtime_up.as_ref().map_or(front, |u| u.return_to);
+        c.bedtime_up = Some(BedtimeUp { shown: payload.clone(), night, return_to });
+    }
+    log(format!("bedtime reminder: {} min before {}", payload.offset, payload.bedtime));
+    bedtime_show(app, &payload);
+}
+
+#[tauri::command]
+async fn bedtime_state(core: State<'_, Shared>) -> Result<Option<Bedtime>, String> {
+    Ok(core.lock().unwrap().bedtime_up.as_ref().map(|u| Bedtime {
+        minutes_left: minutes_until(u.shown.bedtime_ts),
+        ..u.shown.clone()
+    }))
+}
+
+/// "Got it".
+#[tauri::command]
+async fn bedtime_ok(app: AppHandle, core: State<'_, Shared>) -> Result<(), String> {
+    bedtime_dismiss(&app, &core, false);
+    Ok(())
+}
+
+/// "Don't remind again today".
+#[tauri::command]
+async fn bedtime_mute(app: AppHandle, core: State<'_, Shared>) -> Result<(), String> {
+    bedtime_dismiss(&app, &core, true);
+    Ok(())
 }
 
 // ---------- monitor loop ----------
@@ -584,14 +725,24 @@ async fn overlay_back(app: AppHandle, core: State<'_, Shared>, runner: State<'_,
     overlay_hide(&app);
     macos::activate(target.pid);
     let runner = runner.0.clone();
-    let ok = tauri::async_runtime::spawn_blocking(move || {
+    // Close the tab; if the browser won't (no permission, no Close Tab item, script error), send
+    // it to the calm page instead so the site still goes away.
+    let how = tauri::async_runtime::spawn_blocking(move || {
         std::thread::sleep(Duration::from_millis(250));
-        browser::navigate(&target, &calm, runner.as_ref())
+        if browser::close_tab(&target, runner.as_ref()) {
+            "closed"
+        } else if browser::navigate(&target, &calm, runner.as_ref()) {
+            "calm page"
+        } else {
+            "none"
+        }
     })
     .await
-    .unwrap_or(false);
-    if !ok {
-        log("could not navigate the tab away");
+    .unwrap_or("none");
+    match how {
+        "closed" => log("closed the tab"),
+        "calm page" => log("could not close the tab, sent it to the calm page"),
+        _ => log("could not close or navigate the tab away"),
     }
     Ok(())
 }
@@ -651,7 +802,7 @@ async fn get_state(app: AppHandle, core: State<'_, Shared>) -> Result<DashState,
 }
 
 #[tauri::command]
-async fn save_config(core: State<'_, Shared>, mut config: Config) -> Result<Config, String> {
+async fn save_config(app: AppHandle, core: State<'_, Shared>, mut config: Config) -> Result<Config, String> {
     let stamp = Local::now().timestamp_millis();
     for (n, r) in config.rules.iter_mut().enumerate() {
         if r.id.trim().is_empty() {
@@ -673,12 +824,27 @@ async fn save_config(core: State<'_, Shared>, mut config: Config) -> Result<Conf
     if !["time", "light", "dark"].contains(&config.settings.sky.as_str()) {
         config.settings.sky = "time".into();
     }
+    let bedtime_at = bedtime::parse_time(&config.settings.bedtime_at)
+        .unwrap_or_else(|| bedtime::parse_time(&rules::Settings::default().bedtime_at).unwrap());
+    config.settings.bedtime_at = bedtime_at.format("%H:%M").to_string();
     let mut c = core.lock().unwrap();
     let ids: Vec<String> = config.rules.iter().map(|r| r.id.clone()).collect();
     c.allowances.retain(|k, _| ids.contains(k));
+    // turned on, or moved: whatever has already passed tonight is not owed
+    let s = &c.config.settings;
+    if config.settings.bedtime && (!s.bedtime || s.bedtime_at != config.settings.bedtime_at) {
+        c.bedtime_log.reschedule(Local::now().naive_local(), bedtime_at);
+        c.save_bedtime();
+    }
+    let turned_off = !config.settings.bedtime && c.bedtime_up.is_some();
     c.config = config;
     c.save_config();
-    Ok(c.config.clone())
+    let saved = c.config.clone();
+    drop(c);
+    if turned_off {
+        bedtime_dismiss(&app, &core, false);
+    }
+    Ok(saved)
 }
 
 #[tauri::command]
@@ -784,7 +950,10 @@ pub fn run() {
             save_config,
             set_autostart,
             open_privacy,
-            test_browser
+            test_browser,
+            bedtime_state,
+            bedtime_ok,
+            bedtime_mute
         ])
         .setup(|app| {
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
@@ -809,6 +978,8 @@ pub fn run() {
                 last_target: None,
                 last_prompt: None,
                 browser_status: HashMap::new(),
+                bedtime_log: read_json(&dir.join("bedtime.json")).unwrap_or_default(),
+                bedtime_up: None,
                 data_dir: dir.clone(),
             };
             if first_run {
@@ -838,7 +1009,7 @@ pub fn run() {
                 .visible_on_all_workspaces(true)
                 .effects(EffectsBuilder::new().effect(Effect::HudWindow).state(EffectState::Active).build())
                 .build()?;
-            raise_overlay(&overlay);
+            raise_window(&overlay, 101); // NSPopUpMenuWindowLevel
             // The overlay is reused, never closed. If something still asks to close it (a stray
             // performClose), that counts as "close the tab", same as Esc.
             let overlay_app = handle.clone();
@@ -849,6 +1020,30 @@ pub fn run() {
                     tauri::async_runtime::spawn(async move {
                         let _ = overlay_back(app.clone(), app.state(), app.state()).await;
                     });
+                }
+            });
+
+            // The bedtime reminder is the same forest in a second window, one level above the
+            // overlay so it also covers a pause.
+            let bedtime_win = WebviewWindowBuilder::new(app, "bedtime", WebviewUrl::App("overlay.html?mode=bedtime".into()))
+                .title("Defixum")
+                .decorations(false)
+                .transparent(true)
+                .always_on_top(true)
+                .skip_taskbar(true)
+                .resizable(false)
+                .shadow(false)
+                .visible(false)
+                .visible_on_all_workspaces(true)
+                .effects(EffectsBuilder::new().effect(Effect::HudWindow).state(EffectState::Active).build())
+                .build()?;
+            raise_window(&bedtime_win, 102);
+            // Reused, never closed; a stray close request counts as "Got it".
+            let bedtime_app = handle.clone();
+            bedtime_win.on_window_event(move |e| {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = e {
+                    api.prevent_close();
+                    bedtime_dismiss(&bedtime_app, &bedtime_app.state::<Shared>(), false);
                 }
             });
 
@@ -890,7 +1085,14 @@ pub fn run() {
 
             log(format!("started; data in {}", dir.display()));
             let weather_core = shared.clone();
+            let bedtime_core = shared.clone();
+            let bedtime_handle = handle.clone();
             std::thread::spawn(move || monitor(handle, shared, runner));
+            // bedtime reminders: looks every few seconds, so a Mac waking from sleep catches up
+            std::thread::spawn(move || loop {
+                bedtime_tick(&bedtime_handle, &bedtime_core);
+                std::thread::sleep(Duration::from_secs(5));
+            });
             // keeps a recent weather reading while the setting is on; checks twice a minute so
             // turning it on, or waking from sleep, catches up quickly
             std::thread::spawn(move || loop {

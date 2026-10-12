@@ -4,6 +4,7 @@
 use core_foundation::base::{CFType, CFTypeRef, TCFType};
 use core_foundation::boolean::CFBoolean;
 use core_foundation::dictionary::CFDictionary;
+use core_foundation::number::CFNumber;
 use core_foundation::string::{CFString, CFStringRef};
 use core_foundation::url::CFURL;
 use core_foundation_sys::array::{CFArrayGetCount, CFArrayGetTypeID, CFArrayGetValueAtIndex, CFArrayRef};
@@ -19,9 +20,31 @@ extern "C" {
     fn AXUIElementGetTypeID() -> CFTypeID;
     fn AXUIElementCopyAttributeValue(el: CFTypeRef, attr: CFStringRef, value: *mut CFTypeRef) -> i32;
     fn AXUIElementSetAttributeValue(el: CFTypeRef, attr: CFStringRef, value: CFTypeRef) -> i32;
+    fn AXUIElementPerformAction(el: CFTypeRef, action: CFStringRef) -> i32;
     fn AXUIElementSetMessagingTimeout(el: CFTypeRef, seconds: f32) -> i32;
     fn AXIsProcessTrusted() -> u8;
     fn AXIsProcessTrustedWithOptions(options: *const c_void) -> u8;
+}
+
+#[link(name = "Carbon", kind = "framework")]
+extern "C" {
+    static kTISPropertyUnicodeKeyLayoutData: CFStringRef;
+    fn TISCopyCurrentKeyboardLayoutInputSource() -> CFTypeRef;
+    fn TISCopyCurrentASCIICapableKeyboardLayoutInputSource() -> CFTypeRef;
+    fn TISGetInputSourceProperty(source: CFTypeRef, key: CFStringRef) -> CFTypeRef;
+    fn UCKeyTranslate(
+        layout: *const u8,
+        key_code: u16,
+        action: u16,
+        modifiers: u32,
+        keyboard_type: u32,
+        options: u32,
+        dead_keys: *mut u32,
+        max_len: usize,
+        actual_len: *mut usize,
+        out: *mut u16,
+    ) -> i32;
+    fn LMGetKbdType() -> u8;
 }
 
 #[link(name = "CoreGraphics", kind = "framework")]
@@ -74,6 +97,16 @@ impl Element {
         self.attr(name)?.downcast::<CFString>().map(|s| s.to_string())
     }
 
+    /// A numeric attribute (e.g. `AXMenuItemCmdModifiers`).
+    pub fn int(&self, name: &str) -> Option<i64> {
+        self.attr(name)?.downcast::<CFNumber>()?.to_i64()
+    }
+
+    /// A boolean attribute (e.g. `AXEnabled`).
+    pub fn flag(&self, name: &str) -> Option<bool> {
+        self.attr(name)?.downcast::<CFBoolean>().map(bool::from)
+    }
+
     pub fn role(&self) -> String {
         self.string("AXRole").unwrap_or_default()
     }
@@ -116,6 +149,12 @@ impl Element {
         let key = CFString::new(name);
         let v = CFString::new(value);
         unsafe { AXUIElementSetAttributeValue(self.raw(), key.as_concrete_TypeRef(), v.as_CFTypeRef()) }
+    }
+
+    /// Performs an accessibility action such as `AXPress`; 0 means it was carried out.
+    pub fn press(&self) -> i32 {
+        let action = CFString::new("AXPress");
+        unsafe { AXUIElementPerformAction(self.raw(), action.as_concrete_TypeRef()) }
     }
 
     /// Breadth-first search below this element. `descend` decides whether to look inside a
@@ -213,6 +252,41 @@ pub fn press_key(pid: i32, keycode: u16) {
     }
 }
 
+/// The character a virtual key types in the current keyboard layout (key 13 is W: "Ü" on an
+/// Azeri layout). Menu shortcuts are reported in that form. The TIS calls assert off the main
+/// thread on macOS 14+, so call this from the main thread.
+pub fn key_char(keycode: u16) -> Option<String> {
+    use core_foundation_sys::base::CFRelease;
+    use core_foundation_sys::data::CFDataGetBytePtr;
+    unsafe fn translate(source: CFTypeRef, keycode: u16) -> Option<String> {
+        if source.is_null() {
+            return None;
+        }
+        let data = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData);
+        let out = if data.is_null() {
+            None
+        } else {
+            // kUCKeyActionDisplay = 3, kUCKeyTranslateNoDeadKeysMask = 1
+            let (mut dead, mut len, mut buf) = (0u32, 0usize, [0u16; 4]);
+            let layout = CFDataGetBytePtr(data as _);
+            let status = UCKeyTranslate(layout, keycode, 3, 0, LMGetKbdType() as u32, 1, &mut dead, 4, &mut len, buf.as_mut_ptr());
+            (status == 0 && len > 0).then(|| String::from_utf16_lossy(&buf[..len.min(4)]))
+        };
+        CFRelease(source);
+        out
+    }
+    unsafe {
+        // IME sources carry no layout data; their ASCII-capable layout stands in
+        translate(TISCopyCurrentKeyboardLayoutInputSource(), keycode)
+            .or_else(|| translate(TISCopyCurrentASCIICapableKeyboardLayoutInputSource(), keycode))
+    }
+}
+
+/// Whether a menu item's shortcut character is `key`, ignoring case ("ü" equals "Ü").
+pub fn same_key(cmd_char: &str, key: &str) -> bool {
+    !key.is_empty() && cmd_char.to_lowercase() == key.to_lowercase()
+}
+
 // ---------- AppleScript ----------
 
 #[derive(Debug, Clone, PartialEq)]
@@ -277,6 +351,14 @@ pub fn applescript(source: &str) -> Script {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shortcut_characters_compare_ignoring_case() {
+        assert!(same_key("W", "w"));
+        assert!(same_key("Ü", "ü"));
+        assert!(!same_key("W", ""));
+        assert!(!same_key("Q", "w"));
+    }
 
     #[test]
     fn failing_script_is_an_error_not_a_crash() {

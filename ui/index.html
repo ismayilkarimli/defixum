@@ -96,6 +96,13 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
           <span><strong>Weather</strong><small>Rain, snow, fog and cloud on the pause screen follow the weather outside. Uses your approximate location from your internet address</small></span>
           <input type="checkbox" class="switch" id="weather">
         </label>
+        <div class="row">
+          <label for="bedtime"><strong>Bedtime reminder</strong><small>A gentle full-screen reminder 2 hours, 1 hour, 30, 15 and 5 minutes before, and at bedtime</small></label>
+          <span class="unit">
+            <input type="time" id="bedtime-at" aria-label="Bedtime" value="23:00">
+            <input type="checkbox" class="switch" id="bedtime">
+          </span>
+        </div>
         <label class="row">
           <span><strong>Open at login</strong><small>Defixum lives in the menu bar and needs to be running to pause you</small></span>
           <input type="checkbox" class="switch" id="autostart">

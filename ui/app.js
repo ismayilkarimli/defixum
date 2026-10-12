@@ -391,6 +391,10 @@ function renderSetup() {
   const sky = document.querySelector(`input[name="sky"][value="${config.settings.sky || "time"}"]`);
   if (sky) sky.checked = true;
   $("weather").checked = config.settings.weather !== false;
+  $("bedtime").checked = !!config.settings.bedtime;
+  const bedtimeAt = $("bedtime-at");
+  if (document.activeElement !== bedtimeAt) bedtimeAt.value = config.settings.bedtime_at || "23:00";
+  bedtimeAt.disabled = !config.settings.bedtime;
   applySky();
 }
 
@@ -460,6 +464,16 @@ $("weather").addEventListener("change", (e) => {
   // the app fetches a reading within half a minute of the setting going on
   if (!e.target.checked) { outside = null; applySky(); }
   else for (const ms of [8000, 35000]) setTimeout(refreshOutside, ms);
+});
+$("bedtime").addEventListener("change", (e) => {
+  config.settings.bedtime = e.target.checked;
+  $("bedtime-at").disabled = !e.target.checked;
+  scheduleSave();
+});
+$("bedtime-at").addEventListener("change", (e) => {
+  if (e.target.value) config.settings.bedtime_at = e.target.value;
+  else e.target.value = config.settings.bedtime_at || "23:00";
+  scheduleSave();
 });
 $("autostart").addEventListener("change", async (e) => {
   try {
@@ -554,7 +568,7 @@ function mockTauri() {
       { id: "starter", name: "Social & video", enabled: true, sites: ["youtube.com", "reddit.com", "x.com", "instagram.com"], mode: "pause", pause_seconds: 10, countdown: "fill", prompts: ["reflect", "cost"], daily_opens: 5, daily_minutes: 30, schedule: { enabled: false, days: [true, true, true, true, true, false, false], start: "09:00", end: "17:00" } },
       { id: "work", name: "Work hours", enabled: true, sites: ["news.ycombinator.com"], mode: "block", pause_seconds: 10, countdown: "breathe", prompts: ["reflect"], daily_opens: null, daily_minutes: null, schedule: { enabled: true, days: [true, true, true, true, true, false, false], start: "09:00", end: "17:00" } },
     ],
-    settings: { session_options: [2, 5, 15], idle_seconds: 60, sky: new URLSearchParams(location.search).get("sky") || "time", weather: true },
+    settings: { session_options: [2, 5, 15], idle_seconds: 60, sky: new URLSearchParams(location.search).get("sky") || "time", weather: true, bedtime: false, bedtime_at: "23:00" },
   };
   return {
     core: {

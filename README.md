@@ -14,6 +14,7 @@ It works without any browser extension. Defixum reads the address of the tab you
 - **Countdowns and messages**: breathe, fill or drain countdowns, and optional messages while you wait: a question to reflect on, what the visit costs you, or a sentence to type out before you can continue.
 - **A forest under your sky**: the pause is a clearing in a forest drawn fresh each time. The sky follows your clock, with stars at night and birds by day, or you can fix it to light or dark.
 - **The weather outside**: rain, snow, fog, storms and clouds on the pause match your local weather. This uses an approximate location from your internet address (ipwho.is) and the weather from Open-Meteo. Turn it off in Setup if you'd rather not.
+- **Bedtime reminder**: off by default. Set the time you plan to sleep and a calm full-screen reminder appears over whatever you're doing 2 hours, 1 hour, 30, 15 and 5 minutes before, and at bedtime. Every reminder has a "Don't remind again today" button.
 - **Menu bar timer**: shows the time left when you've opened a site for a few minutes.
 
 ### Install

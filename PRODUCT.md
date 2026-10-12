@@ -35,6 +35,7 @@ Works with no browser extension. It reads the active tab's address through Acces
 - Block mode, daily open and minute limits, day and time schedules.
 - Activity: turned back versus opened over 7 days, per-rule counts and time today.
 - Weather (on by default, can be turned off): the pause sky shows the weather outside, using an approximate IP location and Open-Meteo.
+- Bedtime reminder (off by default): set a sleep time and a calm full-screen reminder covers whatever is in front 2 hours, 1 hour, 30, 15 and 5 minutes before it, and at bedtime. Each has "Got it" and "Don't remind again today".
 - Menu bar: the logo with time left on the soonest-expiring unlock; the menu lists every open unlock.
 
 ## Voice
