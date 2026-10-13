@@ -192,6 +192,9 @@ struct Core {
     bedtime_log: bedtime::Log,
     /// the bedtime reminder on screen
     bedtime_up: Option<BedtimeUp>,
+    /// "Close the tab" is stepping back through the tab's history; the pages it passes on the
+    /// way are not paused.
+    leaving: bool,
     data_dir: PathBuf,
 }
 
@@ -632,6 +635,9 @@ fn decide(c: &mut Core, target: &Target, focused: bool, url: Option<&str>, dt: D
     }
     c.expired.retain(|_, t| t.elapsed() < Duration::from_secs(60));
     c.cooldown.retain(|_, t| *t > now);
+    if c.leaving {
+        return UiAction::None;
+    }
     c.waited.retain(|_, (t, _)| t.elapsed() < WAITED_GRACE);
 
     let local = Local::now();
@@ -816,30 +822,84 @@ async fn overlay_back(app: AppHandle, core: State<'_, Shared>, runner: State<'_,
     overlay_hide(&app);
     macos::activate(target.pid);
     let runner = runner.0.clone();
-    // Leave the site by going back to the page the tab came from; a tab with no history is
-    // closed. If the browser won't (no permission, no menu item, script error), send it to the
-    // calm page instead so the site still goes away.
+    let shared = core.inner().clone();
+    shared.lock().unwrap().leaving = true;
     let how = tauri::async_runtime::spawn_blocking(move || {
         std::thread::sleep(Duration::from_millis(250));
-        if browser::go_back(&target, runner.as_ref()) {
-            "went back"
-        } else if browser::close_tab(&target, runner.as_ref()) {
-            "closed"
-        } else if browser::navigate(&target, &calm, runner.as_ref()) {
-            "calm page"
-        } else {
-            "none"
-        }
+        leave_site(&target, &shared, runner.as_ref(), &calm)
     })
     .await
-    .unwrap_or("none");
+    .unwrap_or(Left::Nowhere);
+    core.lock().unwrap().leaving = false;
     match how {
-        "went back" => log("went back to the previous page"),
-        "closed" => log("closed the tab"),
-        "calm page" => log("could not close the tab, sent it to the calm page"),
-        _ => log("could not close or navigate the tab away"),
+        Left::Back(1) => log("went back to the previous page"),
+        Left::Back(n) => log(format!("went back {n} pages, past the paused ones")),
+        Left::Closed => log("closed the tab"),
+        Left::Calm => log("could not close the tab, sent it to the calm page"),
+        Left::Nowhere => log("could not close or navigate the tab away"),
     }
     Ok(())
+}
+
+enum Left {
+    /// went back this many pages
+    Back(u32),
+    Closed,
+    Calm,
+    Nowhere,
+}
+
+/// Most pages "Close the tab" will step back through before closing the tab instead.
+const MAX_BACK: u32 = 20;
+
+/// Would this page be paused or blocked right now?
+fn held_back(core: &Shared, url: &str) -> bool {
+    let c = core.lock().unwrap();
+    rules::evaluate(&c.config, &c.stats, &Local::now(), url, &|id| c.allowances.contains_key(id))
+        .is_some_and(|v| v.reason.is_some())
+}
+
+/// Leaves the paused site: back through the tab's history until a page no rule would hold
+/// (youtube → x.com → x.com/post goes back past both sites), or the tab is closed when its
+/// history runs out first. If the browser won't do either (no permission, no menu item,
+/// script error), the tab is sent to the calm page so the site still goes away.
+fn leave_site(target: &Target, core: &Shared, runner: &MainRunner, calm: &str) -> Left {
+    let mut ax = AxState::default();
+    let mut read = || match browser::fetch(target, &mut ax, runner) {
+        Fetch::Url(u) => Some(u),
+        _ => None,
+    };
+    let mut url = read();
+    let mut steps = 0;
+    while steps < MAX_BACK && browser::go_back(target, runner) {
+        steps += 1;
+        // wait for the address to change, which is when the previous page is showing
+        let deadline = Instant::now() + Duration::from_secs(4);
+        let mut now = None;
+        while Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(120));
+            now = read();
+            if now.is_some() && now != url {
+                break;
+            }
+        }
+        // a page still loading keeps the old address; going back again then could skip past
+        // a page that was fine, so stop where it is
+        if now.is_none() || now == url {
+            return Left::Back(steps);
+        }
+        url = now;
+        if !url.as_deref().is_some_and(|u| held_back(core, u)) {
+            return Left::Back(steps);
+        }
+    }
+    if browser::close_tab(target, runner) {
+        Left::Closed
+    } else if browser::navigate(target, calm, runner) {
+        Left::Calm
+    } else {
+        Left::Nowhere
+    }
 }
 
 // ---------- commands: dashboard ----------
@@ -1079,6 +1139,7 @@ pub fn run() {
                 browser_status: HashMap::new(),
                 bedtime_log: read_json(&dir.join("bedtime.json")).unwrap_or_default(),
                 bedtime_up: None,
+                leaving: false,
                 data_dir: dir.clone(),
             };
             if first_run {

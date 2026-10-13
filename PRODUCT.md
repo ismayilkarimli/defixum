@@ -30,7 +30,7 @@ Works with no browser extension. It reads the active tab's address through Acces
 ## Capabilities
 
 - Rules: a named group of sites, each paused or blocked.
-- Pause: a countdown styled as breathe, fill or drain. After it, close the tab or open the site for one of a few preset minute choices.
+- Pause: a countdown styled as breathe, fill or drain. After it, close the tab or open the site for one of a few preset minute choices. "Close the tab" goes back in the tab's history to the last page no rule holds (past every paused or blocked page on the way), and closes the tab if there is none.
 - Messages while waiting: Reflect (mindful questions), Count the cost (time and sleep tradeoffs, some only at night), Type to unlock (copy a sentence word for word: either a pointed guilt sentence or an encouraging one, such as "I am destined to do great things.").
 - Block mode, daily open and minute limits, day and time schedules.
 - Activity: turned back versus opened over 7 days, per-rule counts and time today.
