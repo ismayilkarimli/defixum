@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<defs><mask id="m"><rect width="64" height="64" fill="#fff"/><path d="M41 5L33 20H37.5L29 34H34L24 50H38.5V59H43.5V50H58L48 34H53L44.5 20H49Z" fill="#000" stroke="#000" stroke-width="6" stroke-linejoin="round"/></mask></defs>
+<circle cx="22" cy="25" r="16" fill="#000" mask="url(#m)"/>
+<path d="M41 5L33 20H37.5L29 34H34L24 50H38.5V59H43.5V50H58L48 34H53L44.5 20H49Z" fill="#000"/>
+</svg>

@@ -58,6 +58,11 @@ document.querySelectorAll(".tabs button").forEach((b) =>
     if (b.dataset.tab !== "rules") load();
   })
 );
+// ?tab=activity|setup opens on that tab (design work and screenshots)
+{
+  const start = new URLSearchParams(location.search).get("tab");
+  if (start) document.querySelector(`.tabs button[data-tab="${CSS.escape(start)}"]`)?.click();
+}
 
 function renderAll() {
   renderList();

@@ -1317,7 +1317,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   }
 
   // test hook: overlay.html?demo=pause|expired|blocked|open_limit|time_limit
-  //   &countdown=breathe|fill|drain   &prompt=reflect|cost|commit|none   &seconds=6
+  //   &countdown=breathe|fill|drain   &prompt=reflect|cost|commit|none   &seconds=6   &sentence=…
   //   &waited=1 (arrive with the countdown already served)   &hour=21.5 (light of that hour)
   //   &weather=clear|cloudy|overcast|fog|drizzle|rain|downpour|storm|snow   &wind=30 (km/h)
   //   bedtime: overlay.html?mode=bedtime&demo=bedtime&minutes=30&hour=21&weather=clear (&at=23:00)
@@ -1332,7 +1332,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
     const prompts = {
       reflect: { kind: "reflect", text: `What were you about to do before you opened ${site}?`, sentence: null },
       cost: { kind: "cost", text: `This is visit number 3 to ${site} today. What did the last one give you?`, sentence: null },
-      commit: { kind: "commit", text: "To unlock, type this sentence exactly:", sentence: `I could close this tab, but I'm choosing ${site} instead.` },
+      commit: { kind: "commit", text: "To unlock, type this sentence exactly:", sentence: q.get("sentence") || `I could close this tab, but I'm choosing ${site} instead.` },
       none: null,
     };
     show({
