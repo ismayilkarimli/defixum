@@ -1,64 +1,60 @@
-<img src="docs/icon.png" width="128" alt="">
+<p align="center"><img src="docs/icon.png" width="128" alt=""></p>
 
-# Defixum
+<h1 align="center">Defixum</h1>
 
-A quiet moment between the urge and the tab.
+<p align="center">A breath between the urge and the tab.</p>
 
-![The pause screen at dusk: a forest under a low sun, asking "What were you about to do before you opened youtube.com?"](docs/pause-dusk.jpg)
+![The pause screen at dusk, asking "What were you about to do before you opened youtube.com?"](docs/pause-dusk.jpg)
 
-Your hands know the way to YouTube before you've decided to go there. Defixum is a small macOS menu-bar app that steps in at that moment. When you land on a site you've chosen, a forest clearing fills the screen and gives you a few slow breaths and a question. Then the choice is yours: close the tab, or open the site for a few minutes, on purpose.
+Your hands find YouTube before you decide to go. Defixum catches that moment.
 
-There's no browser extension to install and nothing to switch off when you're tired. Defixum works with Zen, Firefox, Safari, Chrome, Arc, Brave and Edge.
+No extension. Works with Zen, Firefox, Safari, Chrome, Arc, Brave and Edge.
 
-## A pause, not a wall
+## Pause, then choose
 
-Most of the time you don't need to be stopped, only to be asked. The pause is a countdown you can watch as a breath, a ring that fills, or one that drains. While it runs, Defixum asks something worth a second's thought: what you were about to do, what the visit costs you, or how many times you've already been back today.
+A few slow breaths and one honest question. Then close the tab, or go in for 2, 5 or 15 minutes, on purpose.
 
-When it ends, **Close the tab** takes you back to the page you came from, past every site you've paused on the way. If there's nowhere to go back to, the tab closes. **Open it for 2, 5 or 15 minutes** lets you in, and the menu bar shows how long you have left.
+Closing takes you back past every page you'd rather not be on.
 
-![Late at night under the stars, the pause asks you to type "I am destined to do great things." before the site opens](docs/pause-night.jpg)
+![Under the stars, typing "I am destined to do great things." before the site opens](docs/pause-night.jpg)
 
-For the sites that pull hardest, you can make yourself type a sentence before going in. Some are honest: "I'm trading time I will never get back for x.com." Some remind you who you'd rather be: "I am destined to do great things." Either way, by the time you've typed it, you've decided.
+For the sites that pull hardest, type a sentence first. By the time you've typed it, you've decided.
 
 ## When a pause isn't enough
 
-- **Block** a site completely, with no way through, for when you already know the answer.
-- **Daily limits** on how many times you open a site, or how many minutes you spend there. Once you've used them, it waits until tomorrow.
-- **Schedules** so a rule only applies when it matters: work hours, weeknights, overnight.
-- **Limit ⌘Tab** for the days your attention keeps jumping between apps. After too many switches in a minute, ⌘Tab rests for a while and a small note says when it comes back. Off by default.
+- **Block** for when you already know the answer.
+- **Daily limits** on visits or minutes.
+- **Schedules** for work hours, weeknights, late nights.
+- **Limit ⌘Tab** when your attention keeps jumping between apps.
 
-## Evenings that end when you meant them to
+## Sleep on time
 
-![A bedtime reminder under the moon: "Bedtime in 30 minutes. You planned to sleep at 23:00."](docs/bedtime.jpg)
+![Bedtime reminder under the moon: "Bedtime in 30 minutes."](docs/bedtime.jpg)
 
-Tell Defixum when you'd like to be asleep, and the same forest gently covers the screen 2 hours, 1 hour, 30, 15 and 5 minutes before, and at bedtime. It's a nudge, not a lock: **Got it** puts you back where you were, and **Don't remind again today** lets the night be yours. Off by default.
+A gentle reminder in the hours before bed, and one more at bedtime. A nudge, not a lock.
 
-## Watch the habit loosen
+## See it working
 
-![The Activity view: a week of pauses split into turned back, opened anyway and left without choosing](docs/activity.jpg)
+![A week of pauses: turned back, opened anyway](docs/activity.jpg)
 
-The Activity view shows each day of the past week: how often you were paused, how often you turned back, and how much time went to the sites you'd rather spend less time on. Nothing leaves your Mac.
+Every day you turn back, it shows. Nothing leaves your Mac.
 
-## Made to feel calm
+## A forest, not a warning
 
-The pause isn't a warning screen. It's a clearing in a spruce forest, drawn fresh each time. The sky follows your clock, from birds in the morning light through golden hour to a night of stars, or you can keep it always light or always dark. With **Weather** on, rain, snow, fog, storms and cloud match the sky outside your window.
+The sky follows your clock and, if you like, your local weather. Turn weather off and Defixum never touches the network.
 
-Weather uses an approximate location from your internet address (via ipwho.is, or geojs.io as a fallback) and the forecast from Open-Meteo. You can turn it off in Setup, and then Defixum makes no network requests at all.
-
-![The Rules view: sites, pause or block, countdown style, and the messages shown while you wait](docs/settings.jpg)
+![Rules: sites, pause or block, countdown, messages](docs/settings.jpg)
 
 ## Install
 
-1. Download the `.dmg` from the [latest release](https://github.com/ismayilkarimli/defixum/releases/latest) and drag Defixum into Applications. It works on Apple Silicon and Intel Macs running macOS 13 or later.
-2. The app isn't notarized, so macOS blocks it the first time. Open it once, then go to **System Settings → Privacy & Security** and click **Open Anyway**. You can also run:
+1. Get the `.dmg` from the [latest release](https://github.com/ismayilkarimli/defixum/releases/latest). macOS 13+, Apple Silicon or Intel.
+2. It isn't notarized: open it once, then **System Settings → Privacy & Security → Open Anyway**. Or:
    ```bash
    xattr -dr com.apple.quarantine /Applications/Defixum.app
    ```
-3. Defixum appears in the menu bar. Open **Setup** and grant **Accessibility** access, which is needed for Zen and Firefox. Safari and Chromium browsers ask for permission the first time.
+3. In **Setup**, grant **Accessibility** (for Zen and Firefox). Safari and Chromium browsers ask on first use.
 
-### How it sees the tab you're on
-
-Defixum reads only the address of the tab in front of you. Firefox-based browsers like Zen and Firefox are read through macOS Accessibility. Safari and Chromium browsers (Chrome, Arc, Brave, Edge…) are asked directly through Apple Events. Your rules, history and activity stay in a folder on your Mac.
+Defixum reads only the address of the tab in front of you. Everything stays on your Mac.
 
 ## Running it locally
 
