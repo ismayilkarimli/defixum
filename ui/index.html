@@ -82,6 +82,23 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         </div>
       </div>
       <div class="group">
+        <h3>App switching</h3>
+        <div class="sheet">
+        <label class="row">
+          <span><strong>Limit ⌘Tab</strong><small>Too many app switches in a minute and ⌘Tab stops working for a while</small></span>
+          <input type="checkbox" class="switch" id="switch-limit">
+        </label>
+        <label class="row">
+          <span><strong>Switches allowed</strong><small>⌘Tab presses in any one minute before the cooldown starts</small></span>
+          <span class="unit"><input type="number" id="switches-per-minute" min="1" max="60" value="6"> a minute</span>
+        </label>
+        <label class="row">
+          <span><strong>Cooldown</strong><small>How long ⌘Tab stays off once you go over</small></span>
+          <span class="unit"><input type="number" id="switch-cooldown" min="5" max="3600" value="60"> sec</span>
+        </label>
+        </div>
+      </div>
+      <div class="group">
         <h3>General</h3>
         <div class="sheet">
         <div class="row">

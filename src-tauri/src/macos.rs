@@ -50,6 +50,9 @@ extern "C" {
 #[link(name = "CoreGraphics", kind = "framework")]
 extern "C" {
     fn CGEventSourceSecondsSinceLastEventType(state: i32, event_type: u32) -> f64;
+    fn CGMainDisplayID() -> u32;
+    fn CGDisplayIsAsleep(display: u32) -> u32;
+    fn CGDisplayIsActive(display: u32) -> u32;
 }
 
 // ---------- Accessibility ----------
@@ -232,6 +235,16 @@ pub fn app_installed(bundle: &str) -> bool {
     objc2::rc::autoreleasepool(|_| {
         NSWorkspace::sharedWorkspace().URLForApplicationWithBundleIdentifier(&NSString::from_str(bundle)).is_some()
     })
+}
+
+/// Whether nobody can see the screen: the display is asleep, or there is no active display at all
+/// (a closed lid). macOS wakes a sleeping Mac in the dark every few minutes for upkeep, with
+/// the display still off, and our timers run then too.
+pub fn display_asleep() -> bool {
+    unsafe {
+        let main = CGMainDisplayID();
+        main == 0 || CGDisplayIsAsleep(main) != 0 || CGDisplayIsActive(main) == 0
+    }
 }
 
 /// Seconds since the last keyboard/mouse/trackpad input anywhere.

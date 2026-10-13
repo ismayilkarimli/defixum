@@ -3,6 +3,7 @@ mod browser;
 mod macos;
 mod prompts;
 mod rules;
+mod switcher;
 mod weather;
 
 use browser::{AxState, Fetch, MainRunner, Target};
@@ -258,6 +259,28 @@ fn cover_monitor(app: &AppHandle, w: &WebviewWindow) {
     }
 }
 
+/// Puts a full-screen window back over a whole screen if it no longer matches one, which happens
+/// when screens come and go: waking from sleep, a lid closing, a monitor plugged in. Otherwise
+/// its bottom band, where the buttons are, can end up past the edge of the screen.
+fn refit(app: &AppHandle, label: &str) {
+    let Some(w) = app.get_webview_window(label) else { return };
+    if !w.is_visible().unwrap_or(false) {
+        return;
+    }
+    let (Ok(pos), Ok(size)) = (w.outer_position(), w.outer_size()) else { return };
+    let close = |a: i32, b: i32| (a - b).abs() <= 2;
+    let fits = app.available_monitors().unwrap_or_default().iter().any(|m| {
+        close(m.position().x, pos.x)
+            && close(m.position().y, pos.y)
+            && close(m.size().width as i32, size.width as i32)
+            && close(m.size().height as i32, size.height as i32)
+    });
+    if !fits {
+        log(format!("{label}: screens changed, refitting the window"));
+        cover_monitor(app, &w);
+    }
+}
+
 /// Shows the window and makes its web view the key view.
 fn show_key(w: &WebviewWindow) {
     let _ = w.show();
@@ -307,6 +330,56 @@ fn open_dashboard(app: &AppHandle) {
         let _ = w.set_focus();
         let _ = app.emit_to("main", "refresh", ());
     }
+}
+
+// ---------- Cmd+Tab limit ----------
+
+const TOAST_SIZE: (f64, f64) = (360.0, 68.0);
+/// How long the toast stays up after the last refused Cmd+Tab.
+const TOAST_FOR: Duration = Duration::from_secs(5);
+static TOAST_SHOWN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+#[derive(Serialize, Clone)]
+struct Toast {
+    /// end of the cooldown, unix milliseconds
+    until: i64,
+    limit: u32,
+}
+
+/// Shows the toast near the top of the screen under the pointer, without taking focus, and
+/// hides it again unless another refusal has refreshed it in the meantime. Main thread only.
+fn toast_show(app: &AppHandle, until: i64, limit: u32) {
+    let Some(w) = app.get_webview_window("toast") else { return };
+    let monitor = app
+        .cursor_position()
+        .ok()
+        .and_then(|p| app.monitor_from_point(p.x, p.y).ok().flatten())
+        .or_else(|| w.primary_monitor().ok().flatten());
+    if let Some(m) = monitor {
+        let scale = m.scale_factor();
+        let width = (TOAST_SIZE.0 * scale) as i32;
+        let x = m.position().x + (m.size().width as i32 - width) / 2;
+        let y = m.position().y + (56.0 * scale) as i32;
+        let _ = w.set_position(tauri::PhysicalPosition::new(x, y));
+    }
+    let _ = app.emit_to("toast", "toast", Toast { until, limit });
+    if let Ok(ptr) = w.ns_window() {
+        let win: &objc2_app_kit::NSWindow = unsafe { &*(ptr as *const objc2_app_kit::NSWindow) };
+        win.orderFrontRegardless();
+    }
+    let shown = TOAST_SHOWN.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(TOAST_FOR);
+        if TOAST_SHOWN.load(std::sync::atomic::Ordering::SeqCst) == shown {
+            let a = app.clone();
+            let _ = app.run_on_main_thread(move || {
+                if let Some(w) = a.get_webview_window("toast") {
+                    let _ = w.hide();
+                }
+            });
+        }
+    });
 }
 
 // ---------- bedtime reminder ----------
@@ -374,8 +447,26 @@ fn bedtime_dismiss(app: &AppHandle, core: &Shared, mute: bool) {
     }
 }
 
+/// A reminder still up this long after bedtime was left behind (the Mac slept, the user walked
+/// away); it is taken down rather than greeting them in the morning.
+const BEDTIME_STALE: i64 = 3 * 3600;
+
 /// Shows the reminder that is due now, if there is one. Called every few seconds.
 fn bedtime_tick(app: &AppHandle, core: &Shared) {
+    let stale = core
+        .lock()
+        .unwrap()
+        .bedtime_up
+        .as_ref()
+        .is_some_and(|u| Local::now().timestamp() - u.shown.bedtime_ts > BEDTIME_STALE);
+    if stale {
+        log("bedtime reminder left up for hours; taking it down");
+        bedtime_dismiss(app, core, false);
+    }
+    // nobody would see it; a reminder still in its five minutes shows once the screen is on
+    if macos::display_asleep() {
+        return;
+    }
     let (payload, night) = {
         let mut c = core.lock().unwrap();
         let s = &c.config.settings;
@@ -831,6 +922,10 @@ async fn save_config(app: AppHandle, core: State<'_, Shared>, mut config: Config
     let bedtime_at = bedtime::parse_time(&config.settings.bedtime_at)
         .unwrap_or_else(|| bedtime::parse_time(&rules::Settings::default().bedtime_at).unwrap());
     config.settings.bedtime_at = bedtime_at.format("%H:%M").to_string();
+    config.settings.switches_per_minute = config.settings.switches_per_minute.clamp(1, 60);
+    config.settings.switch_cooldown_seconds = config.settings.switch_cooldown_seconds.clamp(5, 3600);
+    let s = &config.settings;
+    switcher::sync(s.switch_limit, s.switches_per_minute, s.switch_cooldown_seconds);
     let mut c = core.lock().unwrap();
     let ids: Vec<String> = config.rules.iter().map(|r| r.id.clone()).collect();
     c.allowances.retain(|k, _| ids.contains(k));
@@ -1051,6 +1146,31 @@ pub fn run() {
                 }
             });
 
+            // A small note under the menu bar when Cmd+Tab is refused. It never takes focus or clicks.
+            let toast = WebviewWindowBuilder::new(app, "toast", WebviewUrl::App("toast.html".into()))
+                .title("Defixum")
+                .inner_size(TOAST_SIZE.0, TOAST_SIZE.1)
+                .decorations(false)
+                .transparent(true)
+                .always_on_top(true)
+                .skip_taskbar(true)
+                .resizable(false)
+                .shadow(false)
+                .focused(false)
+                .focusable(false)
+                .visible(false)
+                .visible_on_all_workspaces(true)
+                .effects(EffectsBuilder::new().effect(Effect::HudWindow).state(EffectState::Active).radius(16.0).build())
+                .build()?;
+            raise_window(&toast, 103);
+            let _ = toast.set_ignore_cursor_events(true);
+            let toast_app = handle.clone();
+            switcher::init(move |until, limit| {
+                let app = toast_app.clone();
+                let ms = Local::now().timestamp_millis() + until.saturating_duration_since(Instant::now()).as_millis() as i64;
+                let _ = toast_app.run_on_main_thread(move || toast_show(&app, ms, limit));
+            });
+
             let main = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                 .title("Defixum")
                 .inner_size(1040.0, 760.0)
@@ -1092,10 +1212,18 @@ pub fn run() {
             let bedtime_core = shared.clone();
             let bedtime_handle = handle.clone();
             std::thread::spawn(move || monitor(handle, shared, runner));
-            // bedtime reminders: looks every few seconds, so a Mac waking from sleep catches up
+            // bedtime reminders and screen changes: looks every couple of seconds, so a Mac waking
+            // from sleep catches up quickly
             std::thread::spawn(move || loop {
                 bedtime_tick(&bedtime_handle, &bedtime_core);
-                std::thread::sleep(Duration::from_secs(5));
+                if !macos::display_asleep() {
+                    refit(&bedtime_handle, "bedtime");
+                    refit(&bedtime_handle, "overlay");
+                }
+                // also starts the Cmd+Tab limit once Accessibility is granted
+                let s = bedtime_core.lock().unwrap().config.settings.clone();
+                switcher::sync(s.switch_limit, s.switches_per_minute, s.switch_cooldown_seconds);
+                std::thread::sleep(Duration::from_secs(2));
             });
             // keeps a recent weather reading while the setting is on; checks twice a minute so
             // turning it on, or waking from sleep, catches up quickly

@@ -109,6 +109,13 @@ pub struct Settings {
     pub bedtime: bool,
     /// The sleep time, "HH:MM" on a 24-hour clock.
     pub bedtime_at: String,
+    /// Cmd+Tab stops working for a while after too many app switches in a minute. Off until
+    /// asked for.
+    pub switch_limit: bool,
+    /// App switches allowed in any one minute before the cooldown.
+    pub switches_per_minute: u32,
+    /// Seconds Cmd+Tab stays off once the limit is passed.
+    pub switch_cooldown_seconds: u32,
 }
 
 impl Default for Settings {
@@ -120,6 +127,9 @@ impl Default for Settings {
             weather: true,
             bedtime: false,
             bedtime_at: "23:00".into(),
+            switch_limit: false,
+            switches_per_minute: 6,
+            switch_cooldown_seconds: 60,
         }
     }
 }

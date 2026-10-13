@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Defixum</title>
+<style>
+  /* Sits on a dark native blur (HudWindow), so the ink is always light. */
+  :root {
+    --ink: #eef3ea;
+    --muted: rgba(226, 236, 222, 0.7);
+    --moss: #a9c9a0;
+    --display: Optima, "Optima Nova", Candara, "Segoe UI", sans-serif;
+  }
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; cursor: default; user-select: none; -webkit-user-select: none; }
+  body {
+    font: 13px/1.35 -apple-system, system-ui, sans-serif;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    padding: 0 22px;
+    box-sizing: border-box;
+    opacity: 0;
+  }
+  body.on { animation: life 5s ease both; }
+  @keyframes life {
+    0% { opacity: 0; transform: translateY(-6px); }
+    6%, 88% { opacity: 1; transform: none; }
+    100% { opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    @keyframes life { 0%, 92% { opacity: 1; } 100% { opacity: 0; } }
+  }
+  strong { display: block; font: 500 16px/1.3 var(--display); }
+  small { display: block; color: var(--muted); }
+  #left { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+  <span role="status">
+    <strong>⌘Tab is resting for <span id="left">1:00</span></strong>
+    <small id="why">Stay with what you have open.</small>
+  </span>
+<script>
+  const left = document.getElementById("left");
+  const why = document.getElementById("why");
+  let until = 0, timer = 0;
+
+  function tick() {
+    const s = Math.max(0, Math.ceil((until - Date.now()) / 1000));
+    left.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  }
+
+  function show({ until: u, limit }) {
+    until = u;
+    why.textContent = `More than ${limit} switch${limit === 1 ? "" : "es"} in a minute. Stay here a while.`;
+    tick();
+    clearInterval(timer);
+    timer = setInterval(tick, 500);
+    // restart the fade, so a refused press while it is up gives it the full five seconds again
+    document.body.classList.remove("on");
+    void document.body.offsetWidth;
+    document.body.classList.add("on");
+  }
+
+  const demo = new URLSearchParams(location.search).get("demo");
+  if (demo) show({ until: Date.now() + 58000, limit: 6 });
+  else window.__TAURI__.event.listen("toast", (e) => show(e.payload));
+</script>
+</body>
+</html>

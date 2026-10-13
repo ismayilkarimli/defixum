@@ -395,6 +395,13 @@ function renderSetup() {
   const bedtimeAt = $("bedtime-at");
   if (document.activeElement !== bedtimeAt) bedtimeAt.value = config.settings.bedtime_at || "23:00";
   bedtimeAt.disabled = !config.settings.bedtime;
+  $("switch-limit").checked = !!config.settings.switch_limit;
+  const perMinute = $("switches-per-minute");
+  if (document.activeElement !== perMinute) perMinute.value = config.settings.switches_per_minute || 6;
+  perMinute.disabled = !config.settings.switch_limit;
+  const cooldown = $("switch-cooldown");
+  if (document.activeElement !== cooldown) cooldown.value = config.settings.switch_cooldown_seconds || 60;
+  cooldown.disabled = !config.settings.switch_limit;
   applySky();
 }
 
@@ -473,6 +480,24 @@ $("bedtime").addEventListener("change", (e) => {
 $("bedtime-at").addEventListener("change", (e) => {
   if (e.target.value) config.settings.bedtime_at = e.target.value;
   else e.target.value = config.settings.bedtime_at || "23:00";
+  scheduleSave();
+});
+$("switch-limit").addEventListener("change", (e) => {
+  config.settings.switch_limit = e.target.checked;
+  $("switches-per-minute").disabled = !e.target.checked;
+  $("switch-cooldown").disabled = !e.target.checked;
+  scheduleSave();
+});
+$("switches-per-minute").addEventListener("change", (e) => {
+  const v = Math.min(60, Math.max(1, Math.round(+e.target.value || 6)));
+  config.settings.switches_per_minute = v;
+  e.target.value = v;
+  scheduleSave();
+});
+$("switch-cooldown").addEventListener("change", (e) => {
+  const v = Math.min(3600, Math.max(5, Math.round(+e.target.value || 60)));
+  config.settings.switch_cooldown_seconds = v;
+  e.target.value = v;
   scheduleSave();
 });
 $("autostart").addEventListener("change", async (e) => {
@@ -568,7 +593,7 @@ function mockTauri() {
       { id: "starter", name: "Social & video", enabled: true, sites: ["youtube.com", "reddit.com", "x.com", "instagram.com"], mode: "pause", pause_seconds: 10, countdown: "fill", prompts: ["reflect", "cost"], daily_opens: 5, daily_minutes: 30, schedule: { enabled: false, days: [true, true, true, true, true, false, false], start: "09:00", end: "17:00" } },
       { id: "work", name: "Work hours", enabled: true, sites: ["news.ycombinator.com"], mode: "block", pause_seconds: 10, countdown: "breathe", prompts: ["reflect"], daily_opens: null, daily_minutes: null, schedule: { enabled: true, days: [true, true, true, true, true, false, false], start: "09:00", end: "17:00" } },
     ],
-    settings: { session_options: [2, 5, 15], idle_seconds: 60, sky: new URLSearchParams(location.search).get("sky") || "time", weather: true, bedtime: false, bedtime_at: "23:00" },
+    settings: { session_options: [2, 5, 15], idle_seconds: 60, sky: new URLSearchParams(location.search).get("sky") || "time", weather: true, bedtime: false, bedtime_at: "23:00", switch_limit: false, switches_per_minute: 6, switch_cooldown_seconds: 60 },
   };
   return {
     core: {

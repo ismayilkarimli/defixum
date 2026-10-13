@@ -94,6 +94,17 @@ static CATALOG: &[Msg] = &[
     commit("I'm letting {site} decide how I spend my day.", always),
     commit("I'm giving up sleep for {site}.", night),
     commit("I've already been here {opens} times today, and I'm back for more.", repeat_visit),
+    // Type to unlock, the encouraging kind: a reminder of what the time could go to instead
+    commit("I am destined to do great things.", always),
+    commit("I am capable of more than I give myself credit for.", always),
+    commit("My time is valuable, and I decide where it goes.", always),
+    commit("I am building a life I am proud of.", always),
+    commit("I have the discipline to do what matters to me.", always),
+    commit("Small choices like this one shape who I become.", always),
+    commit("I am in control of my attention.", always),
+    commit("I deserve a mind that is rested and clear.", always),
+    commit("Tomorrow I will thank myself for resting tonight.", night),
+    commit("Today is a good day to make progress on my goals.", morning),
 ];
 
 /// Small splitmix64-seeded xorshift; plenty for choosing a message.
@@ -338,6 +349,10 @@ mod tests {
             let s = pick(&[PromptKind::Commit], &c, None, seed).sentence.unwrap();
             assert!(!s.contains("sleep") && !s.contains("already been here"), "{s}");
         }
+        // the encouraging sentences come up alongside the pointed ones
+        let picks: Vec<String> = (0..1000).map(|s| pick(&[PromptKind::Commit], &c, None, s).sentence.unwrap()).collect();
+        assert!(picks.iter().any(|s| s == "I am destined to do great things."));
+        assert!(picks.iter().any(|s| s == "I could close this tab, but I'm choosing x.com instead."));
         let free = Prompt { kind: PromptKind::Reflect, text: "Hi".into(), sentence: None };
         assert!(unlocks(&free, ""));
     }
