@@ -390,8 +390,8 @@ fn toast_show(app: &AppHandle, until: i64, limit: u32) {
 /// What the bedtime screen is told.
 #[derive(Clone, Serialize)]
 struct Bedtime {
-    /// which reminder: minutes before the sleep time, 0 at it
-    offset: u32,
+    /// which reminder: minutes before the sleep time, 0 at it, negative after it
+    offset: i32,
     minutes_left: i64,
     /// the sleep time as set, "23:00"
     bedtime: String,
@@ -499,7 +499,7 @@ fn bedtime_tick(app: &AppHandle, core: &Shared) {
         let return_to = c.bedtime_up.as_ref().map_or(front, |u| u.return_to);
         c.bedtime_up = Some(BedtimeUp { shown: payload.clone(), night, return_to });
     }
-    log(format!("bedtime reminder: {} min before {}", payload.offset, payload.bedtime));
+    log(format!("bedtime reminder: {} min {} {}", payload.offset.abs(), if payload.offset < 0 { "after" } else { "before" }, payload.bedtime));
     bedtime_show(app, &payload);
 }
 

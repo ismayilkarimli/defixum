@@ -35,7 +35,7 @@ Works with no browser extension. It reads the active tab's address through Acces
 - Block mode, daily open and minute limits, day and time schedules.
 - Activity: turned back versus opened over 7 days, per-rule counts and time today.
 - Weather (on by default, can be turned off): the pause sky shows the weather outside, using an approximate IP location and Open-Meteo.
-- Bedtime reminder (off by default): set a sleep time and a calm full-screen reminder covers whatever is in front 2 hours, 1 hour, 30, 15 and 5 minutes before it, and at bedtime. Each has "Got it" and "Don't remind again today". Reminders wait while the display is asleep, and one left up for 3 hours after bedtime is taken down on its own.
+- Bedtime reminder (off by default): set a sleep time and a calm full-screen reminder covers whatever is in front 2 hours, 1 hour, 30, 15 and 5 minutes before it, at bedtime, then every 15 minutes until 2 hours past it. Each has "Got it" and "Don't remind again today". Reminders wait while the display is asleep, and one left up for 3 hours after bedtime is taken down on its own.
 - Limit ⌘Tab (off by default): after more than N app switches in a minute (6 unless changed), ⌘Tab is swallowed for a cooldown (60 seconds unless changed); each refused press shows a small toast under the menu bar for 5 seconds.
 - Menu bar: the logo with time left on the soonest-expiring unlock; the menu lists every open unlock.
 

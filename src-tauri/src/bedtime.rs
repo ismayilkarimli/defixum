@@ -6,21 +6,22 @@ use chrono::{Duration, NaiveDateTime, NaiveTime};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
-/// Minutes before the sleep time at which a reminder appears. 0 is the sleep time itself.
-pub const OFFSETS: [u32; 6] = [120, 60, 30, 15, 5, 0];
+/// Minutes before the sleep time at which a reminder appears. 0 is the sleep time itself; after it,
+/// one every 15 minutes (negative) for two hours.
+pub const OFFSETS: [i32; 14] = [120, 60, 30, 15, 5, 0, -15, -30, -45, -60, -75, -90, -105, -120];
 /// How long after its moment a reminder can still appear (a Mac waking from sleep catches up).
 const WINDOW: Duration = Duration::minutes(5);
-/// A sleep time stays "the next one" this long after it passes, so the 0-minute reminder has room.
-const LINGER: Duration = Duration::minutes(30);
+/// A sleep time stays "the next one" this long after it passes, so the reminders after it have room.
+const LINGER: Duration = Duration::minutes(130);
 /// Reminder records kept on disk.
-const KEEP: usize = 36;
+const KEEP: usize = 60;
 
 /// What bedtime reminders have already happened. Saved so a restart neither repeats nor forgets.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct Log {
     /// (night, offset) of every reminder shown or skipped
-    pub shown: BTreeSet<(String, u32)>,
+    pub shown: BTreeSet<(String, i32)>,
     /// the night whose remaining reminders were turned off with "Don't remind again today"
     pub muted: Option<String>,
 }
@@ -30,7 +31,7 @@ pub struct Log {
 pub struct Due {
     /// date of the sleep time it belongs to, "YYYY-MM-DD"
     pub night: String,
-    pub offset: u32,
+    pub offset: i32,
     pub bedtime: NaiveDateTime,
 }
 
@@ -38,7 +39,7 @@ pub fn parse_time(s: &str) -> Option<NaiveTime> {
     NaiveTime::parse_from_str(s.trim(), "%H:%M").ok()
 }
 
-/// The sleep time these reminders are counting toward: the first one at or after half an hour ago.
+/// The sleep time these reminders are counting toward: the first one at or after 130 minutes ago.
 pub fn next_bedtime(now: NaiveDateTime, at: NaiveTime) -> NaiveDateTime {
     let from = now - LINGER;
     let same_day = from.date().and_time(at);
@@ -69,7 +70,7 @@ pub fn due(now: NaiveDateTime, at: NaiveTime, log: &Log) -> Option<Due> {
 
 impl Log {
     /// Remember that this reminder was shown. Earlier ones for the same night count as done too.
-    pub fn record(&mut self, night: &str, offset: u32) {
+    pub fn record(&mut self, night: &str, offset: i32) {
         for o in OFFSETS.into_iter().filter(|&o| o >= offset) {
             self.shown.insert((night.to_string(), o));
         }
@@ -116,7 +117,7 @@ mod tests {
         t(h, m) + Duration::days(1)
     }
 
-    fn offset_at(now: NaiveDateTime, bed: NaiveTime, log: &Log) -> Option<u32> {
+    fn offset_at(now: NaiveDateTime, bed: NaiveTime, log: &Log) -> Option<i32> {
         due(now, bed, log).map(|d| d.offset)
     }
 
@@ -164,6 +165,33 @@ mod tests {
         assert_eq!(offset_at(t(23, 4), at(23, 0), &log), Some(0));
         assert_eq!(offset_at(t(23, 5), at(23, 0), &log), None);
         assert_eq!(offset_at(t(23, 20), at(23, 0), &log), None);
+    }
+
+    #[test]
+    fn every_quarter_hour_for_two_hours_after_bedtime() {
+        let log = Log::default();
+        let cases = [((23, 15), -15), ((23, 30), -30), ((23, 45), -45), ((0, 0), -60), ((0, 30), -90), ((1, 0), -120)];
+        for ((h, m), want) in cases {
+            let now = if h < 12 { t2(h, m) } else { t(h, m) };
+            let d = due(now, at(23, 0), &log).unwrap_or_else(|| panic!("nothing at {h}:{m:02}"));
+            assert_eq!((d.offset, d.night.as_str()), (want, "2026-10-11"), "{h}:{m:02}");
+        }
+        for (h, m) in [(23, 10), (0, 20), (1, 5), (1, 15), (2, 0), (3, 0)] {
+            let now = if h < 12 { t2(h, m) } else { t(h, m) };
+            assert_eq!(offset_at(now, at(23, 0), &log), None, "{h}:{m:02}");
+        }
+    }
+
+    #[test]
+    fn muting_after_bedtime_silences_the_rest() {
+        let mut log = Log::default();
+        let d = due(t(23, 30), at(23, 0), &log).unwrap();
+        log.record(&d.night, d.offset);
+        log.mute(&d.night);
+        for (h, m) in [(23, 45), (0, 0), (0, 45), (1, 0)] {
+            let now = if h < 12 { t2(h, m) } else { t(h, m) };
+            assert_eq!(offset_at(now, at(23, 0), &log), None, "{h}:{m:02}");
+        }
     }
 
     #[test]
@@ -249,8 +277,10 @@ mod tests {
         assert_eq!(next_bedtime(t(10, 0), at(23, 0)), t(23, 0));
         assert_eq!(next_bedtime(t(23, 10), at(23, 0)), t(23, 0)); // within the half hour after
         assert_eq!(next_bedtime(t(23, 30), at(23, 0)), t(23, 0));
-        assert_eq!(next_bedtime(t(23, 31), at(23, 0)), t2(23, 0));
-        assert_eq!(next_bedtime(t(0, 10), at(23, 0)), t(23, 0));
+        assert_eq!(next_bedtime(t2(1, 10), at(23, 0)), t(23, 0)); // the last reminder's window
+        assert_eq!(next_bedtime(t2(1, 11), at(23, 0)), t2(23, 0));
+        assert_eq!(next_bedtime(t(0, 10), at(23, 0)), t(23, 0) - Duration::days(1)); // last night's
+        assert_eq!(next_bedtime(t(1, 30), at(23, 0)), t(23, 0));
     }
 
     #[test]
@@ -272,10 +302,11 @@ mod tests {
     }
 
     #[test]
-    fn switching_it_on_during_the_hour_after_bedtime_waits_for_tomorrow() {
+    fn switching_it_on_after_bedtime_waits_for_the_next_quarter_hour() {
         let mut log = Log::default();
         log.reschedule(t(23, 2), at(23, 0));
         assert_eq!(offset_at(t(23, 3), at(23, 0), &log), None);
+        assert_eq!(offset_at(t(23, 15), at(23, 0), &log), Some(-15));
         assert_eq!(offset_at(t2(21, 0), at(23, 0), &log), Some(120));
     }
 

@@ -1241,7 +1241,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
   // ---------- bedtime reminder ----------
   // The same forest, with a still sun or moon showing the time left before the sleep time. The
-  // window is opened by the app (overlay.html?mode=bedtime) at 2 h, 1 h, 30, 15, 5 and 0 minutes.
+  // window is opened by the app (overlay.html?mode=bedtime) at 2 h, 1 h, 30, 15, 5 and 0 minutes,
+  // then every 15 minutes for two hours after the sleep time.
   const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
   const setText = (id, text) => { const n = $(id); if (n.textContent !== text) n.textContent = text; };
   const BEDTIME_NOTES = [
@@ -1252,7 +1253,20 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
     [60, "Maybe wrap up what you're in the middle of."],
     [Infinity, "A good time to start winding down."],
   ];
+  const LATE_NOTES = [
+    [30, "Time to put the screen down."],
+    [60, "Whatever it is, it can wait until morning."],
+    [Infinity, "Close the laptop. Tomorrow will thank you."],
+  ];
   let bedtimeTimer = null;
+
+  // Minutes since the sleep time, once its own five minutes are over; null before that.
+  function minutesLate(p) {
+    const late = Math.floor((Date.now() - p.bedtime_ts * 1000) / 60000);
+    return p.offset < 0 || late >= 5 ? Math.max(late, 1) : null;
+  }
+
+  const span = (m) => (m < 60 ? plural(m, "minute") : m % 60 ? `${plural(Math.floor(m / 60), "hour")} ${plural(m % 60, "minute")}` : plural(m / 60, "hour"));
 
   // The minutes the screen speaks of: the reminder's own mark while it is fresh, the real time left
   // once it has been sitting there longer than its five minutes.
@@ -1264,6 +1278,14 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   function renderBedtime() {
     const p = current;
     if (!p) return;
+    const late = minutesLate(p);
+    if (late !== null) {
+      setText("count", late < 60 ? String(late) : `${Math.floor(late / 60)}:${String(late % 60).padStart(2, "0")}`);
+      setText("cue", late < 60 ? (late === 1 ? "minute late" : "minutes late") : "hours late");
+      setText("title", `${span(late)[0].toUpperCase()}${span(late).slice(1)} past bedtime.`);
+      setText("detail", `You planned to sleep at ${p.bedtime}. ${LATE_NOTES.find(([max]) => late <= max)[1]}`);
+      return;
+    }
     const m = bedtimeMinutes(p), hours = m >= 120 && m % 60 === 0;
     setText("count", m === 0 ? "now" : String(hours ? m / 60 : m));
     setText("cue", m === 0 ? "" : hours ? "hours" : m === 1 ? "minute" : "minutes");
@@ -1323,10 +1345,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   //   bedtime: overlay.html?mode=bedtime&demo=bedtime&minutes=30&hour=21&weather=clear (&at=23:00)
   const demo = q.get("demo");
   if (bedtimeMode && demo === "bedtime") {
+    // negative minutes: that long past bedtime
     const minutes = q.has("minutes") ? +q.get("minutes") : 30;
     const when = new Date(Date.now() + minutes * 60000);
     const clock = q.get("at") || `${String(when.getHours()).padStart(2, "0")}:${String(when.getMinutes()).padStart(2, "0")}`;
-    showBedtime({ offset: minutes, minutes_left: minutes, bedtime: clock, bedtime_ts: Math.floor(when.getTime() / 1000), sky: "time", weather: null });
+    showBedtime({ offset: minutes, minutes_left: Math.max(minutes, 0), bedtime: clock, bedtime_ts: Math.floor(when.getTime() / 1000), sky: "time", weather: null });
   } else if (demo && !bedtimeMode) {
     const site = "youtube.com";
     const prompts = {
