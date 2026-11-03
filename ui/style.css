@@ -384,35 +384,38 @@ h3 + .sheet { margin-top: 0; }
 .row.warn { background: var(--amber-soft); }
 .unit { display: flex; align-items: center; gap: 6px; color: var(--muted); white-space: nowrap; }
 .unit:has(.switch) { gap: 12px; }
-#bedtime-at, #bed-edit-at { font-variant-numeric: tabular-nums; }
+#bedtime-at { font-variant-numeric: tabular-nums; }
 /* bedtime by weekday: seven small cells, each showing that night's time */
 .row.bed { flex-direction: column; align-items: stretch; gap: 0; }
 .bed-top { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .bed-more { margin-top: 14px; }
 .bed-more > small { margin-top: 8px; }
-.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
-.bed-edit {
-  display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  margin-top: 10px; padding: 9px 12px;
-  border: 1px solid var(--line); border-radius: 10px; background: var(--moss-soft);
-}
-.week button {
-  display: flex; flex-direction: column; align-items: center; gap: 1px;
-  padding: 6px 0 5px;
-  border: 1px solid var(--field-line); border-radius: 8px;
+.week { display: flex; gap: 6px; }
+.week .cell {
+  flex: 1 1 0; min-width: 0; height: 64px; overflow: hidden;
+  border: 1px solid var(--field-line); border-radius: 9px;
   background: var(--surface); color: var(--muted);
-  font-size: 12px; line-height: 1.25;
+  transition: flex-grow 320ms cubic-bezier(0.3, 0.7, 0.2, 1), border-color 200ms, background-color 200ms, box-shadow 200ms;
 }
-.week button:hover { border-color: var(--moss); }
+.week .cell:hover { border-color: var(--moss); }
+.week .face, .week .nm { border: 0; background: none; padding: 0; border-radius: 0; font: inherit; color: inherit; cursor: pointer; }
+.week .face { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 100%; height: 100%; font-size: 12px; line-height: 1.25; }
 .week .t { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--faint); }
-.week button.custom { background: var(--moss-soft); color: var(--ink); }
-.week button.custom .t { color: var(--ink); font-weight: 600; }
-.week button.off { border-style: dashed; background: none; }
-.week button.off .t { color: var(--faint); font-weight: 400; }
-.week button[aria-pressed="true"] { border-color: var(--moss); box-shadow: 0 0 0 1px var(--moss); }
-.week button:focus-visible { outline: 2px solid var(--moss); outline-offset: 2px; }
-.quiet { border: 0; background: none; padding: 4px 2px; font-size: 12px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
-.quiet:hover { color: var(--ink); }
+.week .cell.custom { background: var(--moss-soft); color: var(--ink); }
+.week .cell.custom .t { color: var(--ink); font-weight: 600; }
+.week .cell.off { border-style: dashed; background: none; }
+.week .ctl { display: none; height: 100%; box-sizing: border-box; padding: 8px 10px; flex-direction: column; justify-content: space-between; animation: cell-in 260ms ease 120ms both; }
+.week .nm { align-self: flex-start; font-size: 12px; line-height: 1.25; }
+.week .nm:hover { color: var(--ink); }
+.week .controls { display: flex; align-items: center; gap: 10px; }
+.week .controls input[type="time"] { font-size: 13px; padding: 3px 6px; min-width: 0; font-variant-numeric: tabular-nums; }
+.week .cell.off .controls input[type="time"] { display: none; }
+.week .cell.sel { flex-grow: 3.7; border-style: solid; border-color: var(--moss); background: var(--surface); box-shadow: 0 0 0 1px var(--moss); color: var(--ink); }
+.week .cell.sel .face { display: none; }
+.week .cell.sel .ctl { display: flex; }
+.week .face:focus-visible, .week .nm:focus-visible { outline: 2px solid var(--moss); outline-offset: -2px; border-radius: 6px; }
+@keyframes cell-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .week .cell { transition: none; } .week .ctl { animation: none; } }
 #session-options { width: 120px; text-align: right; }
 .browsers { list-style: none; padding: 0; }
 .browsers li { display: flex; align-items: center; gap: 12px; padding: 11px 16px; border-top: 1px solid var(--line); }

@@ -492,11 +492,13 @@ $("bedtime-at").addEventListener("change", (e) => {
   scheduleSave();
 });
 
-// Bedtime by day: seven cells showing each night's time; picking one opens its editor below.
+// Bedtime by day: seven cells, each showing that night's time. The picked one grows to hold its
+// own switch and time; with the switch off the time goes and the night is skipped.
 const FULL_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-let bedDay = null; // the weekday being edited, Monday = 0
-let bedKey = "";
+let bedDay = null; // the weekday picked, Monday = 0
+let bedCells = null;
 const bedDays = () => Array.from({ length: 7 }, (_, i) => (config.settings.bedtime_by_day || [])[i] || "");
+const bedUsual = () => config.settings.bedtime_at || "23:00";
 function setBedDay(i, value) {
   const days = bedDays();
   days[i] = value;
@@ -504,49 +506,57 @@ function setBedDay(i, value) {
   drawBedtime();
   scheduleSave();
 }
-function drawBedtime() {
-  const s = config.settings, on = !!s.bedtime, usual = s.bedtime_at || "23:00", days = bedDays();
-    $("bed-more").hidden = !on;
-  $("bed-edit").hidden = !on || bedDay === null;
-  const key = JSON.stringify([on, usual, days, bedDay]);
-  if (key === bedKey) return;
-  bedKey = key;
-  const custom = days.filter(Boolean).length;
-  $("bed-days-note").textContent = custom === 0
-    ? "The same time every night. Pick a day to change it"
-    : `${custom} ${custom === 1 ? "night differs" : "nights differ"} from the usual time`;
+function buildBedWeek() {
   const week = $("bed-week");
   week.replaceChildren();
-  DAY_NAMES.forEach((name, i) => {
-    const v = days[i], b = document.createElement("button");
-    b.type = "button";
-    b.className = v === "off" ? "off" : v ? "custom" : "";
-    b.setAttribute("aria-pressed", bedDay === i);
-    b.setAttribute("aria-label", `${FULL_DAYS[i]} night: ${v === "off" ? "no reminder" : v || usual}`);
-    b.innerHTML = `<span>${name}</span><span class="t">${v === "off" ? "Off" : v || usual}</span>`;
-    b.addEventListener("click", () => { bedDay = bedDay === i ? null : i; drawBedtime(); });
-    week.appendChild(b);
+  bedCells = DAY_NAMES.map((name, i) => {
+    const cell = document.createElement("div");
+    cell.className = "cell";
+    cell.innerHTML = `
+      <button type="button" class="face"><span>${name}</span><span class="t"></span></button>
+      <div class="ctl">
+        <button type="button" class="nm" aria-label="Close ${FULL_DAYS[i]}">${name}</button>
+        <span class="controls">
+          <input type="checkbox" class="switch" aria-label="Remind on ${FULL_DAYS[i]} nights">
+          <input type="time" aria-label="Bedtime on ${FULL_DAYS[i]} nights">
+        </span>
+      </div>`;
+    const pick = () => { bedDay = bedDay === i ? null : i; drawBedtime(); };
+    cell.querySelector(".face").addEventListener("click", pick);
+    cell.querySelector(".nm").addEventListener("click", pick);
+    const sw = cell.querySelector(".switch"), at = cell.querySelector("input[type=time]");
+    sw.addEventListener("change", () => setBedDay(i, sw.checked ? (at.value && at.value !== bedUsual() ? at.value : "") : "off"));
+    at.addEventListener("change", () => {
+      if (!at.value) { at.value = bedDays()[i] || bedUsual(); return; }
+      setBedDay(i, at.value === bedUsual() ? "" : at.value);
+    });
+    week.appendChild(cell);
+    return cell;
   });
-  if (bedDay !== null) {
-    const v = days[bedDay], at = $("bed-edit-at"), sw = $("bed-edit-on");
-    $("bed-edit-name").textContent = `${FULL_DAYS[bedDay]} night`;
-    at.value = v && v !== "off" ? v : usual;
-    at.disabled = v === "off";
-    sw.checked = v !== "off";
-    $("bed-reset").hidden = v === "";
-    $("bed-reset").textContent = `Use ${usual}`;
-  }
 }
-$("bed-edit-at").addEventListener("change", (e) => {
-  if (!e.target.value || bedDay === null) return;
-  setBedDay(bedDay, e.target.value === (config.settings.bedtime_at || "23:00") ? "" : e.target.value);
-});
-$("bed-edit-on").addEventListener("change", (e) => {
-  if (bedDay === null) return;
-  const t = $("bed-edit-at").value;
-  setBedDay(bedDay, e.target.checked ? (t && t !== (config.settings.bedtime_at || "23:00") ? t : "") : "off");
-});
-$("bed-reset").addEventListener("click", () => { if (bedDay !== null) setBedDay(bedDay, ""); });
+function drawBedtime() {
+  const on = !!config.settings.bedtime, usual = bedUsual(), days = bedDays();
+  $("bed-more").hidden = !on;
+  if (!on) bedDay = null;
+  if (!bedCells) buildBedWeek();
+  bedCells.forEach((cell, i) => {
+    const v = days[i], off = v === "off", picked = bedDay === i;
+    cell.classList.toggle("sel", picked);
+    cell.classList.toggle("custom", !!v && !off);
+    cell.classList.toggle("off", off);
+    const face = cell.querySelector(".face");
+    face.querySelector(".t").textContent = off ? "Off" : v || usual;
+    face.setAttribute("aria-label", `${FULL_DAYS[i]} night: ${off ? "no reminder" : v || usual}`);
+    cell.querySelector(".nm").hidden = false;
+    const sw = cell.querySelector(".switch"), at = cell.querySelector("input[type=time]");
+    sw.checked = !off;
+    if (document.activeElement !== at) at.value = off ? usual : v || usual;
+  });
+  const custom = days.filter(Boolean).length;
+  $("bed-days-note").textContent = custom === 0
+    ? "The same time every night. Pick a night to change it or turn it off"
+    : `${custom} ${custom === 1 ? "night differs" : "nights differ"} from the usual time`;
+}
 $("switch-limit").addEventListener("change", (e) => {
   config.settings.switch_limit = e.target.checked;
   $("switches-per-minute").disabled = !e.target.checked;
