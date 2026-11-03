@@ -542,6 +542,7 @@ function drawBedtime() {
   bedCells.forEach((cell, i) => {
     const v = days[i], off = v === "off", picked = bedDay === i;
     cell.classList.toggle("sel", picked);
+    if (!picked) cell.style.flexBasis = "";
     cell.classList.toggle("custom", !!v && !off);
     cell.classList.toggle("off", off);
     const face = cell.querySelector(".face");
@@ -552,6 +553,11 @@ function drawBedtime() {
     sw.checked = !off;
     if (document.activeElement !== at) at.value = off ? usual : v || usual;
   });
+  const sel = bedCells[bedDay];
+  if (sel) { // hug the toggle and time, whatever the font makes of them
+    const w = Math.max(...[...sel.querySelector(".ctl").children].map((c) => c.getBoundingClientRect().width));
+    sel.style.flexBasis = Math.ceil(w) + 24 + "px";
+  }
   const custom = days.filter(Boolean).length;
   $("bed-days-note").textContent = custom === 0
     ? "The same time every night. Pick a night to change it or turn it off"
