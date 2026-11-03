@@ -1378,7 +1378,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
     const minutes = q.has("minutes") ? +q.get("minutes") : 30;
     const when = new Date(Date.now() + minutes * 60000);
     const clock = q.get("at") || `${String(when.getHours()).padStart(2, "0")}:${String(when.getMinutes()).padStart(2, "0")}`;
-    showBedtime({ offset: minutes, minutes_left: Math.max(minutes, 0), bedtime: clock, bedtime_ts: Math.floor(when.getTime() / 1000), snooze: minutes <= 0 ? [15, 30, 60] : [], sky: "time", weather: null });
+    showBedtime({ offset: minutes, minutes_left: Math.max(minutes, 0), bedtime: clock, bedtime_ts: Math.floor(when.getTime() / 1000), snooze: minutes <= 0 ? [15, 30, 45, 60] : [], sky: "time", weather: null });
   } else if (demo && !bedtimeMode) {
     const site = "youtube.com";
     const prompts = {

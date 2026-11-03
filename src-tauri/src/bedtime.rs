@@ -10,7 +10,7 @@ use std::collections::BTreeSet;
 /// it the user chooses when to be reminded again, up to `LATE_SPAN` minutes past the sleep time.
 pub const OFFSETS: [i32; 6] = [120, 60, 30, 15, 5, 0];
 /// The choices offered at and after the sleep time, in minutes; the first is the default.
-pub const SNOOZES: [u32; 3] = [15, 30, 60];
+pub const SNOOZES: [u32; 4] = [15, 30, 45, 60];
 /// How long after its moment a reminder can still appear (a Mac waking from sleep catches up).
 const WINDOW: Duration = Duration::minutes(5);
 /// A sleep time stays "the next one" this long after it passes, so the reminders after it have room.
@@ -515,8 +515,9 @@ mod tests {
     #[test]
     fn the_choices_stop_two_hours_after_bedtime() {
         let bed = t(23, 0);
-        assert_eq!(Log::snoozes(bed, t(23, 2)), vec![15, 30, 60]);
-        assert_eq!(Log::snoozes(bed, t2(0, 30)), vec![15, 30]); // 1 h would be 01:30
+        assert_eq!(Log::snoozes(bed, t(23, 2)), vec![15, 30, 45, 60]);
+        assert_eq!(Log::snoozes(bed, t2(0, 15)), vec![15, 30, 45]); // 1 h would be 01:15
+        assert_eq!(Log::snoozes(bed, t2(0, 30)), vec![15, 30]);
         assert_eq!(Log::snoozes(bed, t2(0, 45)), vec![15]); // the default stays first
         assert!(Log::snoozes(bed, t2(0, 46)).is_empty());
         let mut log = Log::default();

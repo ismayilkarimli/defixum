@@ -31,7 +31,7 @@ For the sites that pull hardest, type a sentence first. By the time you've typed
 
 ![Bedtime reminder under the moon: "Bedtime in 30 minutes."](docs/bedtime.jpg)
 
-Gentle reminders before bed, and again if you are still up: back in 15 minutes, 30, or an hour, your call. Each night can have its own time, or none.
+Gentle reminders before bed, and again if you are still up: back in 15 minutes, 30, 45, or an hour, your call. Each night can have its own time, or none.
 
 ## See it working
 
