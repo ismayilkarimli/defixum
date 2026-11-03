@@ -112,8 +112,6 @@ pub struct Settings {
     /// Seven entries, Monday first, for the night that starts that evening: "" for the usual
     /// time, "off", or another "HH:MM".
     pub bedtime_by_day: Vec<String>,
-    /// Minutes between the reminders after the sleep time: 15, 30 or 60.
-    pub bedtime_late_every: u32,
     /// Cmd+Tab stops working for a while after too many app switches in a minute. Off until
     /// asked for.
     pub switch_limit: bool,
@@ -133,7 +131,6 @@ impl Default for Settings {
             bedtime: false,
             bedtime_at: "23:00".into(),
             bedtime_by_day: vec![String::new(); 7],
-            bedtime_late_every: 15,
             switch_limit: false,
             switches_per_minute: 6,
             switch_cooldown_seconds: 60,

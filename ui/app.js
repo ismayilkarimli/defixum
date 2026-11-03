@@ -491,9 +491,6 @@ $("bedtime-at").addEventListener("change", (e) => {
   drawBedtime();
   scheduleSave();
 });
-for (const r of document.querySelectorAll('input[name="bed-late"]')) {
-  r.addEventListener("change", () => { config.settings.bedtime_late_every = +r.value; scheduleSave(); });
-}
 
 // Bedtime by day: seven cells showing each night's time; picking one opens its editor below.
 const FULL_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -509,11 +506,8 @@ function setBedDay(i, value) {
 }
 function drawBedtime() {
   const s = config.settings, on = !!s.bedtime, usual = s.bedtime_at || "23:00", days = bedDays();
-  $("bed-late-row").hidden = !on;
-  $("bed-more").hidden = !on;
+    $("bed-more").hidden = !on;
   $("bed-edit").hidden = !on || bedDay === null;
-  const pace = document.querySelector(`input[name="bed-late"][value="${s.bedtime_late_every || 15}"]`);
-  if (pace) pace.checked = true;
   const key = JSON.stringify([on, usual, days, bedDay]);
   if (key === bedKey) return;
   bedKey = key;
@@ -664,7 +658,7 @@ function mockTauri() {
       { id: "starter", name: "Social & video", enabled: true, sites: ["youtube.com", "reddit.com", "x.com", "instagram.com"], mode: "pause", pause_seconds: 10, countdown: "fill", prompts: ["reflect", "cost"], daily_opens: 5, daily_minutes: 30, schedule: { enabled: false, days: [true, true, true, true, true, false, false], start: "09:00", end: "17:00" } },
       { id: "work", name: "Work hours", enabled: true, sites: ["news.ycombinator.com"], mode: "block", pause_seconds: 10, countdown: "breathe", prompts: ["reflect"], daily_opens: null, daily_minutes: null, schedule: { enabled: true, days: [true, true, true, true, true, false, false], start: "09:00", end: "17:00" } },
     ],
-    settings: { session_options: [2, 5, 15], idle_seconds: 60, sky: new URLSearchParams(location.search).get("sky") || "time", weather: true, bedtime: false, bedtime_at: "23:00", bedtime_by_day: ["", "", "", "", "", "", ""], bedtime_late_every: 15, switch_limit: false, switches_per_minute: 6, switch_cooldown_seconds: 60 },
+    settings: { session_options: [2, 5, 15], idle_seconds: 60, sky: new URLSearchParams(location.search).get("sky") || "time", weather: true, bedtime: false, bedtime_at: "23:00", bedtime_by_day: ["", "", "", "", "", "", ""], switch_limit: false, switches_per_minute: 6, switch_cooldown_seconds: 60 },
   };
   return {
     core: {

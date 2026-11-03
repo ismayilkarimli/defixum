@@ -115,7 +115,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         </label>
         <div class="row bed">
           <div class="bed-top">
-            <label for="bedtime"><strong>Bedtime reminder</strong><small>A gentle full-screen reminder 2 hours, 1 hour, 30, 15 and 5 minutes before, and at bedtime</small></label>
+            <label for="bedtime"><strong>Bedtime reminder</strong><small>A gentle full-screen reminder 2 hours, 1 hour, 30, 15 and 5 minutes before, and at bedtime. Past it, you choose when to be reminded again</small></label>
             <span class="unit">
               <input type="time" id="bedtime-at" aria-label="Bedtime" value="23:00">
               <input type="checkbox" class="switch" id="bedtime">
@@ -133,14 +133,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
               </span>
             </div>
           </div>
-        </div>
-        <div class="row" id="bed-late-row" hidden>
-          <span><strong>Still up after bedtime</strong><small>Keep reminding you for two hours, every</small></span>
-          <span class="seg" role="radiogroup" aria-label="Reminder pace after bedtime">
-            <label><input type="radio" name="bed-late" value="15"> 15 min</label>
-            <label><input type="radio" name="bed-late" value="30"> 30 min</label>
-            <label><input type="radio" name="bed-late" value="60"> 1 hour</label>
-          </span>
         </div>
         <label class="row">
           <span><strong>Open at login</strong><small>Defixum lives in the menu bar and needs to be running to pause you</small></span>

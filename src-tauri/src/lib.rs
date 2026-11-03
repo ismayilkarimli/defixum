@@ -397,6 +397,9 @@ struct Bedtime {
     bedtime: String,
     /// unix seconds of the sleep time this reminder counts toward
     bedtime_ts: i64,
+    /// at and after the sleep time: the "remind me again in" choices in minutes, the first being
+    /// the default; empty before it, or when none would still fall in the two hours after it
+    snooze: Vec<u32>,
     sky: String,
     /// the weather outside, when that setting is on and a recent reading exists
     weather: Option<weather::Weather>,
@@ -412,7 +415,7 @@ struct BedtimeUp {
 
 /// When to remind, from the settings; None if the sleep time is unreadable.
 fn bedtime_plan(s: &rules::Settings) -> Option<bedtime::Plan> {
-    Some(bedtime::Plan::new(bedtime::parse_time(&s.bedtime_at)?, &s.bedtime_by_day, s.bedtime_late_every))
+    Some(bedtime::Plan::new(bedtime::parse_time(&s.bedtime_at)?, &s.bedtime_by_day))
 }
 
 fn minutes_until(ts: i64) -> i64 {
@@ -482,7 +485,8 @@ fn bedtime_tick(app: &AppHandle, core: &Shared) {
             return;
         }
         let Some(plan) = bedtime_plan(s) else { return };
-        let Some(due) = bedtime::due(Local::now().naive_local(), plan, &c.bedtime_log) else { return };
+        let now = Local::now().naive_local();
+        let Some(due) = bedtime::due(now, plan, &c.bedtime_log) else { return };
         let Some(ts) = Local.from_local_datetime(&due.bedtime).earliest().map(|t| t.timestamp()) else { return };
         let payload = Bedtime {
             offset: due.offset,
@@ -490,6 +494,7 @@ fn bedtime_tick(app: &AppHandle, core: &Shared) {
             // the time of this night's sleep moment, which may be a weekday's own
             bedtime: due.bedtime.format("%H:%M").to_string(),
             bedtime_ts: ts,
+            snooze: if due.offset <= 0 { bedtime::Log::snoozes(due.bedtime, now) } else { vec![] },
             sky: s.sky.clone(),
             weather: if s.weather { weather::current() } else { None },
         };
@@ -520,6 +525,24 @@ async fn bedtime_state(core: State<'_, Shared>) -> Result<Option<Bedtime>, Strin
 /// "Got it".
 #[tauri::command]
 async fn bedtime_ok(app: AppHandle, core: State<'_, Shared>) -> Result<(), String> {
+    bedtime_dismiss(&app, &core, false);
+    Ok(())
+}
+
+/// "Remind me again in…" on a reminder at or after the sleep time.
+#[tauri::command]
+async fn bedtime_later(app: AppHandle, core: State<'_, Shared>, minutes: u32) -> Result<(), String> {
+    {
+        let mut c = core.lock().unwrap();
+        let Some((night, ts)) = c.bedtime_up.as_ref().map(|u| (u.night.clone(), u.shown.bedtime_ts)) else { return Ok(()) };
+        let bedtime = Local.timestamp_opt(ts, 0).single().map(|t| t.naive_local());
+        if let Some(bedtime) = bedtime {
+            if c.bedtime_log.snooze(&night, bedtime, Local::now().naive_local(), minutes) {
+                log(format!("bedtime: reminding again in {minutes} min"));
+            }
+            c.save_bedtime();
+        }
+    }
     bedtime_dismiss(&app, &core, false);
     Ok(())
 }
@@ -996,9 +1019,6 @@ async fn save_config(app: AppHandle, core: State<'_, Shared>, mut config: Config
             v => bedtime::parse_time(v).map_or(String::new(), |t| t.format("%H:%M").to_string()),
         };
     }
-    if ![15, 30, 60].contains(&config.settings.bedtime_late_every) {
-        config.settings.bedtime_late_every = 15;
-    }
     config.settings.switches_per_minute = config.settings.switches_per_minute.clamp(1, 60);
     config.settings.switch_cooldown_seconds = config.settings.switch_cooldown_seconds.clamp(5, 3600);
     let s = &config.settings;
@@ -1010,8 +1030,7 @@ async fn save_config(app: AppHandle, core: State<'_, Shared>, mut config: Config
     let s = &c.config.settings;
     let changed = !s.bedtime
         || s.bedtime_at != config.settings.bedtime_at
-        || s.bedtime_by_day != config.settings.bedtime_by_day
-        || s.bedtime_late_every != config.settings.bedtime_late_every;
+        || s.bedtime_by_day != config.settings.bedtime_by_day;
     if config.settings.bedtime && changed {
         if let Some(plan) = bedtime_plan(&config.settings) {
             c.bedtime_log.reschedule(Local::now().naive_local(), plan);
@@ -1135,6 +1154,7 @@ pub fn run() {
             test_browser,
             bedtime_state,
             bedtime_ok,
+            bedtime_later,
             bedtime_mute
         ])
         .setup(|app| {
