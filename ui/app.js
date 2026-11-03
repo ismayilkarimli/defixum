@@ -103,7 +103,7 @@ $("add-rule").addEventListener("click", async () => {
     id: `r${Date.now()}`, name: "New rule", enabled: true, sites: [], mode: "pause", pause_seconds: 10,
     countdown: "breathe", prompts: ["reflect"],
     daily_opens: null, daily_minutes: null,
-    schedule: { enabled: false, days: [true, true, true, true, true, false, false], start: "09:00", end: "17:00" },
+    schedule: { enabled: false, days: [true, true, true, true, true, false, false], start: "00:00", end: "23:59" },
   };
   config.rules.push(r);
   selected = r.id;
@@ -400,6 +400,7 @@ function renderSetup() {
   const bedtimeAt = $("bedtime-at");
   if (document.activeElement !== bedtimeAt) bedtimeAt.value = config.settings.bedtime_at || "23:00";
   bedtimeAt.disabled = !config.settings.bedtime;
+  drawBedtime();
   $("switch-limit").checked = !!config.settings.switch_limit;
   const perMinute = $("switches-per-minute");
   if (document.activeElement !== perMinute) perMinute.value = config.settings.switches_per_minute || 6;
@@ -480,13 +481,78 @@ $("weather").addEventListener("change", (e) => {
 $("bedtime").addEventListener("change", (e) => {
   config.settings.bedtime = e.target.checked;
   $("bedtime-at").disabled = !e.target.checked;
+  if (!e.target.checked) bedDay = null;
+  drawBedtime();
   scheduleSave();
 });
 $("bedtime-at").addEventListener("change", (e) => {
   if (e.target.value) config.settings.bedtime_at = e.target.value;
   else e.target.value = config.settings.bedtime_at || "23:00";
+  drawBedtime();
   scheduleSave();
 });
+for (const r of document.querySelectorAll('input[name="bed-late"]')) {
+  r.addEventListener("change", () => { config.settings.bedtime_late_every = +r.value; scheduleSave(); });
+}
+
+// Bedtime by day: seven cells showing each night's time; picking one opens its editor below.
+const FULL_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+let bedDay = null; // the weekday being edited, Monday = 0
+let bedKey = "";
+const bedDays = () => Array.from({ length: 7 }, (_, i) => (config.settings.bedtime_by_day || [])[i] || "");
+function setBedDay(i, value) {
+  const days = bedDays();
+  days[i] = value;
+  config.settings.bedtime_by_day = days;
+  drawBedtime();
+  scheduleSave();
+}
+function drawBedtime() {
+  const s = config.settings, on = !!s.bedtime, usual = s.bedtime_at || "23:00", days = bedDays();
+  $("bed-late-row").hidden = !on;
+  $("bed-days-row").hidden = !on;
+  $("bed-edit").hidden = !on || bedDay === null;
+  const pace = document.querySelector(`input[name="bed-late"][value="${s.bedtime_late_every || 15}"]`);
+  if (pace) pace.checked = true;
+  const key = JSON.stringify([on, usual, days, bedDay]);
+  if (key === bedKey) return;
+  bedKey = key;
+  const custom = days.filter(Boolean).length;
+  $("bed-days-note").textContent = custom === 0
+    ? "The same time every night. Pick a day to change it"
+    : `${custom} ${custom === 1 ? "night differs" : "nights differ"} from the usual time`;
+  const week = $("bed-week");
+  week.replaceChildren();
+  DAY_NAMES.forEach((name, i) => {
+    const v = days[i], b = document.createElement("button");
+    b.type = "button";
+    b.className = v === "off" ? "off" : v ? "custom" : "";
+    b.setAttribute("aria-pressed", bedDay === i);
+    b.setAttribute("aria-label", `${FULL_DAYS[i]} night: ${v === "off" ? "no reminder" : v || usual}`);
+    b.innerHTML = `<span>${name}</span><span class="t">${v === "off" ? "Off" : v || usual}</span>`;
+    b.addEventListener("click", () => { bedDay = bedDay === i ? null : i; drawBedtime(); });
+    week.appendChild(b);
+  });
+  if (bedDay !== null) {
+    const v = days[bedDay], at = $("bed-edit-at"), sw = $("bed-edit-on");
+    $("bed-edit-name").textContent = `${FULL_DAYS[bedDay]} night`;
+    at.value = v && v !== "off" ? v : usual;
+    at.disabled = v === "off";
+    sw.checked = v !== "off";
+    $("bed-reset").hidden = v === "";
+    $("bed-reset").textContent = `Use ${usual}`;
+  }
+}
+$("bed-edit-at").addEventListener("change", (e) => {
+  if (!e.target.value || bedDay === null) return;
+  setBedDay(bedDay, e.target.value === (config.settings.bedtime_at || "23:00") ? "" : e.target.value);
+});
+$("bed-edit-on").addEventListener("change", (e) => {
+  if (bedDay === null) return;
+  const t = $("bed-edit-at").value;
+  setBedDay(bedDay, e.target.checked ? (t && t !== (config.settings.bedtime_at || "23:00") ? t : "") : "off");
+});
+$("bed-reset").addEventListener("click", () => { if (bedDay !== null) setBedDay(bedDay, ""); });
 $("switch-limit").addEventListener("change", (e) => {
   config.settings.switch_limit = e.target.checked;
   $("switches-per-minute").disabled = !e.target.checked;
@@ -598,7 +664,7 @@ function mockTauri() {
       { id: "starter", name: "Social & video", enabled: true, sites: ["youtube.com", "reddit.com", "x.com", "instagram.com"], mode: "pause", pause_seconds: 10, countdown: "fill", prompts: ["reflect", "cost"], daily_opens: 5, daily_minutes: 30, schedule: { enabled: false, days: [true, true, true, true, true, false, false], start: "09:00", end: "17:00" } },
       { id: "work", name: "Work hours", enabled: true, sites: ["news.ycombinator.com"], mode: "block", pause_seconds: 10, countdown: "breathe", prompts: ["reflect"], daily_opens: null, daily_minutes: null, schedule: { enabled: true, days: [true, true, true, true, true, false, false], start: "09:00", end: "17:00" } },
     ],
-    settings: { session_options: [2, 5, 15], idle_seconds: 60, sky: new URLSearchParams(location.search).get("sky") || "time", weather: true, bedtime: false, bedtime_at: "23:00", switch_limit: false, switches_per_minute: 6, switch_cooldown_seconds: 60 },
+    settings: { session_options: [2, 5, 15], idle_seconds: 60, sky: new URLSearchParams(location.search).get("sky") || "time", weather: true, bedtime: false, bedtime_at: "23:00", bedtime_by_day: ["", "", "", "", "", "", ""], bedtime_late_every: 15, switch_limit: false, switches_per_minute: 6, switch_cooldown_seconds: 60 },
   };
   return {
     core: {

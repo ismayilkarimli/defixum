@@ -31,7 +31,7 @@ For the sites that pull hardest, type a sentence first. By the time you've typed
 
 ![Bedtime reminder under the moon: "Bedtime in 30 minutes."](docs/bedtime.jpg)
 
-Gentle reminders before bed. Still up? One every 15 minutes, for two hours. A nudge, not a lock.
+Gentle reminders before bed, and again if you are still up. Each night can have its own time, or none. A nudge, not a lock.
 
 ## See it working
 

@@ -52,8 +52,8 @@ impl Default for Schedule {
         Schedule {
             enabled: false,
             days: [true, true, true, true, true, false, false],
-            start: "09:00".into(),
-            end: "17:00".into(),
+            start: "00:00".into(),
+            end: "23:59".into(),
         }
     }
 }
@@ -109,6 +109,11 @@ pub struct Settings {
     pub bedtime: bool,
     /// The sleep time, "HH:MM" on a 24-hour clock.
     pub bedtime_at: String,
+    /// Seven entries, Monday first, for the night that starts that evening: "" for the usual
+    /// time, "off", or another "HH:MM".
+    pub bedtime_by_day: Vec<String>,
+    /// Minutes between the reminders after the sleep time: 15, 30 or 60.
+    pub bedtime_late_every: u32,
     /// Cmd+Tab stops working for a while after too many app switches in a minute. Off until
     /// asked for.
     pub switch_limit: bool,
@@ -127,6 +132,8 @@ impl Default for Settings {
             weather: true,
             bedtime: false,
             bedtime_at: "23:00".into(),
+            bedtime_by_day: vec![String::new(); 7],
+            bedtime_late_every: 15,
             switch_limit: false,
             switches_per_minute: 6,
             switch_cooldown_seconds: 60,
@@ -268,10 +275,12 @@ pub fn schedule_active(s: &Schedule, now: &DateTime<Local>) -> bool {
     let wd = now.weekday().num_days_from_monday() as usize;
     let prev = (wd + 6) % 7;
     let t = NaiveTime::from_hms_opt(now.hour(), now.minute(), now.second()).unwrap();
+    // an end of 23:59 means the end of the day, seconds included
+    let end_of_day = NaiveTime::from_hms_opt(23, 59, 0).unwrap();
     if start == end {
         s.days[wd]
     } else if start < end {
-        s.days[wd] && t >= start && t < end
+        s.days[wd] && t >= start && (t < end || end == end_of_day)
     } else {
         // overnight window, e.g. 22:00–02:00: the early part belongs to the previous day
         (s.days[wd] && t >= start) || (s.days[prev] && t < end)
@@ -393,7 +402,7 @@ mod tests {
 
     #[test]
     fn schedules() {
-        let mut s = Schedule { enabled: true, ..Schedule::default() }; // Mon–Fri 9–17
+        let mut s = Schedule { enabled: true, start: "09:00".into(), end: "17:00".into(), ..Schedule::default() }; // Mon–Fri 9–17
         // 2026-10-12 is a Monday
         assert!(schedule_active(&s, &at(2026, 10, 12, 9, 0)));
         assert!(!schedule_active(&s, &at(2026, 10, 12, 17, 0)));
@@ -405,6 +414,16 @@ mod tests {
         assert!(!schedule_active(&s, &at(2026, 10, 12, 1, 0))); // early Mon belongs to Sun (off)
         s.enabled = false;
         assert!(schedule_active(&s, &at(2026, 10, 11, 1, 0)));
+    }
+
+    #[test]
+    fn a_schedule_defaults_to_whole_days() {
+        let s = Schedule { enabled: true, days: [false, false, false, false, false, true, true], ..Schedule::default() };
+        assert_eq!((s.start.as_str(), s.end.as_str()), ("00:00", "23:59"));
+        // 2026-10-10 is a Saturday: covered from midnight to the last second
+        assert!(schedule_active(&s, &at(2026, 10, 10, 0, 0)));
+        assert!(schedule_active(&s, &at(2026, 10, 10, 23, 59)));
+        assert!(!schedule_active(&s, &at(2026, 10, 12, 12, 0))); // Monday
     }
 
     #[test]
@@ -433,7 +452,7 @@ mod tests {
             id: "work".into(),
             sites: vec!["youtube.com".into()],
             mode: Mode::Block,
-            schedule: Schedule { enabled: true, ..Schedule::default() },
+            schedule: Schedule { enabled: true, start: "09:00".into(), end: "17:00".into(), ..Schedule::default() },
             ..Rule::default()
         });
         let v = evaluate(&cfg, &Stats::default(), &now, url, &yes).unwrap();

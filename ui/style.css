@@ -384,7 +384,26 @@ h3 + .sheet { margin-top: 0; }
 .row.warn { background: var(--amber-soft); }
 .unit { display: flex; align-items: center; gap: 6px; color: var(--muted); white-space: nowrap; }
 .unit:has(.switch) { gap: 12px; }
-#bedtime-at { font-variant-numeric: tabular-nums; }
+#bedtime-at, #bed-edit-at { font-variant-numeric: tabular-nums; }
+/* bedtime by weekday: seven small cells, each showing that night's time */
+.week { display: flex; gap: 5px; flex: none; }
+.week button {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  width: 46px; padding: 6px 0 5px;
+  border: 1px solid var(--field-line); border-radius: 8px;
+  background: var(--surface); color: var(--muted);
+  font-size: 12px; line-height: 1.25;
+}
+.week button:hover { border-color: var(--moss); }
+.week .t { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--faint); }
+.week button.custom { background: var(--moss-soft); color: var(--ink); }
+.week button.custom .t { color: var(--ink); font-weight: 600; }
+.week button.off { border-style: dashed; background: none; }
+.week button.off .t { color: var(--faint); font-weight: 400; }
+.week button[aria-pressed="true"] { border-color: var(--moss); box-shadow: 0 0 0 1px var(--moss); }
+.week button:focus-visible { outline: 2px solid var(--moss); outline-offset: 2px; }
+.quiet { border: 0; background: none; padding: 4px 2px; font-size: 12px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+.quiet:hover { color: var(--ink); }
 #session-options { width: 120px; text-align: right; }
 .browsers { list-style: none; padding: 0; }
 .browsers li { display: flex; align-items: center; gap: 12px; padding: 11px 16px; border-top: 1px solid var(--line); }

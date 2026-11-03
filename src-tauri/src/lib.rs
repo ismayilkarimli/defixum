@@ -410,6 +410,11 @@ struct BedtimeUp {
     return_to: Option<i32>,
 }
 
+/// When to remind, from the settings; None if the sleep time is unreadable.
+fn bedtime_plan(s: &rules::Settings) -> Option<bedtime::Plan> {
+    Some(bedtime::Plan::new(bedtime::parse_time(&s.bedtime_at)?, &s.bedtime_by_day, s.bedtime_late_every))
+}
+
 fn minutes_until(ts: i64) -> i64 {
     (ts - Local::now().timestamp() + 59).div_euclid(60).max(0)
 }
@@ -476,13 +481,14 @@ fn bedtime_tick(app: &AppHandle, core: &Shared) {
         if !s.bedtime {
             return;
         }
-        let Some(at) = bedtime::parse_time(&s.bedtime_at) else { return };
-        let Some(due) = bedtime::due(Local::now().naive_local(), at, &c.bedtime_log) else { return };
+        let Some(plan) = bedtime_plan(s) else { return };
+        let Some(due) = bedtime::due(Local::now().naive_local(), plan, &c.bedtime_log) else { return };
         let Some(ts) = Local.from_local_datetime(&due.bedtime).earliest().map(|t| t.timestamp()) else { return };
         let payload = Bedtime {
             offset: due.offset,
             minutes_left: minutes_until(ts),
-            bedtime: s.bedtime_at.clone(),
+            // the time of this night's sleep moment, which may be a weekday's own
+            bedtime: due.bedtime.format("%H:%M").to_string(),
             bedtime_ts: ts,
             sky: s.sky.clone(),
             weather: if s.weather { weather::current() } else { None },
@@ -982,6 +988,17 @@ async fn save_config(app: AppHandle, core: State<'_, Shared>, mut config: Config
     let bedtime_at = bedtime::parse_time(&config.settings.bedtime_at)
         .unwrap_or_else(|| bedtime::parse_time(&rules::Settings::default().bedtime_at).unwrap());
     config.settings.bedtime_at = bedtime_at.format("%H:%M").to_string();
+    // seven entries: "" (the usual time), "off", or a clock time
+    config.settings.bedtime_by_day.resize(7, String::new());
+    for d in &mut config.settings.bedtime_by_day {
+        *d = match d.trim() {
+            "off" => "off".into(),
+            v => bedtime::parse_time(v).map_or(String::new(), |t| t.format("%H:%M").to_string()),
+        };
+    }
+    if ![15, 30, 60].contains(&config.settings.bedtime_late_every) {
+        config.settings.bedtime_late_every = 15;
+    }
     config.settings.switches_per_minute = config.settings.switches_per_minute.clamp(1, 60);
     config.settings.switch_cooldown_seconds = config.settings.switch_cooldown_seconds.clamp(5, 3600);
     let s = &config.settings;
@@ -991,9 +1008,15 @@ async fn save_config(app: AppHandle, core: State<'_, Shared>, mut config: Config
     c.allowances.retain(|k, _| ids.contains(k));
     // turned on, or moved: whatever has already passed tonight is not owed
     let s = &c.config.settings;
-    if config.settings.bedtime && (!s.bedtime || s.bedtime_at != config.settings.bedtime_at) {
-        c.bedtime_log.reschedule(Local::now().naive_local(), bedtime_at);
-        c.save_bedtime();
+    let changed = !s.bedtime
+        || s.bedtime_at != config.settings.bedtime_at
+        || s.bedtime_by_day != config.settings.bedtime_by_day
+        || s.bedtime_late_every != config.settings.bedtime_late_every;
+    if config.settings.bedtime && changed {
+        if let Some(plan) = bedtime_plan(&config.settings) {
+            c.bedtime_log.reschedule(Local::now().naive_local(), plan);
+            c.save_bedtime();
+        }
     }
     let turned_off = !config.settings.bedtime && c.bedtime_up.is_some();
     c.config = config;

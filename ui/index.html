@@ -120,6 +120,26 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
             <input type="checkbox" class="switch" id="bedtime">
           </span>
         </div>
+        <div class="row" id="bed-late-row" hidden>
+          <span><strong>Still up after bedtime</strong><small>Keep reminding you for two hours, every</small></span>
+          <span class="seg" role="radiogroup" aria-label="Reminder pace after bedtime">
+            <label><input type="radio" name="bed-late" value="15"> 15 min</label>
+            <label><input type="radio" name="bed-late" value="30"> 30 min</label>
+            <label><input type="radio" name="bed-late" value="60"> 1 hour</label>
+          </span>
+        </div>
+        <div class="row" id="bed-days-row" hidden>
+          <span><strong>By day</strong><small id="bed-days-note">The same time every night. Pick a day to change it</small></span>
+          <div class="week" id="bed-week" role="group" aria-label="Bedtime by day"></div>
+        </div>
+        <div class="row" id="bed-edit" hidden>
+          <span><strong id="bed-edit-name">Friday night</strong><small>Bedtime for the night that starts that evening</small></span>
+          <span class="unit">
+            <button class="quiet" id="bed-reset" type="button">Use usual time</button>
+            <input type="time" id="bed-edit-at" aria-label="Bedtime for this night">
+            <input type="checkbox" class="switch" id="bed-edit-on" aria-label="Remind on this night">
+          </span>
+        </div>
         <label class="row">
           <span><strong>Open at login</strong><small>Defixum lives in the menu bar and needs to be running to pause you</small></span>
           <input type="checkbox" class="switch" id="autostart">
