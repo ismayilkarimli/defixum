@@ -522,8 +522,7 @@ function buildBedWeek() {
         </span>
       </div>`;
     const pick = () => { bedDay = bedDay === i ? null : i; drawBedtime(); };
-    cell.querySelector(".face").addEventListener("click", pick);
-    cell.querySelector(".nm").addEventListener("click", pick);
+    cell.addEventListener("click", (e) => { if (!e.target.closest("input")) pick(); }); // empty space closes it too
     const sw = cell.querySelector(".switch"), at = cell.querySelector("input[type=time]");
     sw.addEventListener("change", () => setBedDay(i, sw.checked ? (at.value && at.value !== bedUsual() ? at.value : "") : "off"));
     at.addEventListener("change", () => {
