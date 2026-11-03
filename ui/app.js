@@ -510,7 +510,7 @@ function setBedDay(i, value) {
 function drawBedtime() {
   const s = config.settings, on = !!s.bedtime, usual = s.bedtime_at || "23:00", days = bedDays();
   $("bed-late-row").hidden = !on;
-  $("bed-days-row").hidden = !on;
+  $("bed-more").hidden = !on;
   $("bed-edit").hidden = !on || bedDay === null;
   const pace = document.querySelector(`input[name="bed-late"][value="${s.bedtime_late_every || 15}"]`);
   if (pace) pace.checked = true;

@@ -386,10 +386,19 @@ h3 + .sheet { margin-top: 0; }
 .unit:has(.switch) { gap: 12px; }
 #bedtime-at, #bed-edit-at { font-variant-numeric: tabular-nums; }
 /* bedtime by weekday: seven small cells, each showing that night's time */
-.week { display: flex; gap: 5px; flex: none; }
+.row.bed { flex-direction: column; align-items: stretch; gap: 0; }
+.bed-top { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.bed-more { margin-top: 14px; }
+.bed-more > small { margin-top: 8px; }
+.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.bed-edit {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  margin-top: 10px; padding: 9px 12px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--moss-soft);
+}
 .week button {
   display: flex; flex-direction: column; align-items: center; gap: 1px;
-  width: 46px; padding: 6px 0 5px;
+  padding: 6px 0 5px;
   border: 1px solid var(--field-line); border-radius: 8px;
   background: var(--surface); color: var(--muted);
   font-size: 12px; line-height: 1.25;

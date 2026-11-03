@@ -113,12 +113,26 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
           <span><strong>Weather</strong><small>Rain, snow, fog and cloud on the pause screen follow the weather outside. Uses your approximate location from your internet address</small></span>
           <input type="checkbox" class="switch" id="weather">
         </label>
-        <div class="row">
-          <label for="bedtime"><strong>Bedtime reminder</strong><small>A gentle full-screen reminder 2 hours, 1 hour, 30, 15 and 5 minutes before, and at bedtime</small></label>
-          <span class="unit">
-            <input type="time" id="bedtime-at" aria-label="Bedtime" value="23:00">
-            <input type="checkbox" class="switch" id="bedtime">
-          </span>
+        <div class="row bed">
+          <div class="bed-top">
+            <label for="bedtime"><strong>Bedtime reminder</strong><small>A gentle full-screen reminder 2 hours, 1 hour, 30, 15 and 5 minutes before, and at bedtime</small></label>
+            <span class="unit">
+              <input type="time" id="bedtime-at" aria-label="Bedtime" value="23:00">
+              <input type="checkbox" class="switch" id="bedtime">
+            </span>
+          </div>
+          <div class="bed-more" id="bed-more" hidden>
+            <div class="week" id="bed-week" role="group" aria-label="Bedtime by day"></div>
+            <small id="bed-days-note">The same time every night. Pick a night to change it or turn it off</small>
+            <div class="bed-edit" id="bed-edit" hidden>
+              <strong id="bed-edit-name">Friday night</strong>
+              <span class="unit">
+                <button class="quiet" id="bed-reset" type="button">Use usual time</button>
+                <input type="time" id="bed-edit-at" aria-label="Bedtime for this night">
+                <input type="checkbox" class="switch" id="bed-edit-on" aria-label="Remind on this night">
+              </span>
+            </div>
+          </div>
         </div>
         <div class="row" id="bed-late-row" hidden>
           <span><strong>Still up after bedtime</strong><small>Keep reminding you for two hours, every</small></span>
@@ -126,18 +140,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
             <label><input type="radio" name="bed-late" value="15"> 15 min</label>
             <label><input type="radio" name="bed-late" value="30"> 30 min</label>
             <label><input type="radio" name="bed-late" value="60"> 1 hour</label>
-          </span>
-        </div>
-        <div class="row" id="bed-days-row" hidden>
-          <span><strong>By day</strong><small id="bed-days-note">The same time every night. Pick a day to change it</small></span>
-          <div class="week" id="bed-week" role="group" aria-label="Bedtime by day"></div>
-        </div>
-        <div class="row" id="bed-edit" hidden>
-          <span><strong id="bed-edit-name">Friday night</strong><small>Bedtime for the night that starts that evening</small></span>
-          <span class="unit">
-            <button class="quiet" id="bed-reset" type="button">Use usual time</button>
-            <input type="time" id="bed-edit-at" aria-label="Bedtime for this night">
-            <input type="checkbox" class="switch" id="bed-edit-on" aria-label="Remind on this night">
           </span>
         </div>
         <label class="row">
