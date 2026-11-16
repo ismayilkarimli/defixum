@@ -264,6 +264,8 @@ small { display: block; color: var(--muted); font-size: 12px; font-weight: 400; 
 
 .pair { display: flex; flex-direction: column; gap: 10px; }
 .limit { display: flex; align-items: center; gap: 8px; }
+.limit.apart { margin-top: 12px; }
+.limit[hidden] { display: none; }
 input[type="number"], input[type="time"], input[type="text"] {
   background: var(--surface);
   border: 1px solid var(--field-line);

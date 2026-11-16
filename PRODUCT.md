@@ -32,7 +32,7 @@ Works with no browser extension. It reads the active tab's address through Acces
 - Rules: a named group of sites, each paused or blocked.
 - Pause: a countdown styled as breathe, fill or drain. After it, close the tab or open the site for one of a few preset minute choices. "Close the tab" goes back in the tab's history to the last page no rule holds (past every paused or blocked page on the way), and closes the tab if there is none.
 - Messages while waiting: Reflect (mindful questions), Count the cost (time and sleep tradeoffs, some only at night), Type to unlock (copy a sentence word for word: either a pointed guilt sentence or an encouraging one, such as "I am destined to do great things.").
-- Block mode, daily open and minute limits, day and time schedules.
+- Block mode, daily open and minute limits, day and time schedules. A rule's sites share its limits unless "Give each site its own limits" is on; then each site has its own counts and unlocks.
 - Activity: turned back versus opened over 7 days, per-rule counts and time today.
 - Weather (on by default, can be turned off): the pause sky shows the weather outside, using an approximate IP location and Open-Meteo.
 - Bedtime reminder (off by default): set a sleep time and a calm full-screen reminder covers whatever is in front 2 hours, 1 hour, 30, 15 and 5 minutes before it, at bedtime, and from then until 2 hours past it each reminder asks when to come back: Remind me in 15 min (the default, picked by Enter or Esc), or 30 min, 45 min, or 1 hour. Each night of the week can have its own sleep time or none ("By day" in Setup). Each has "Got it" and "Don't remind again today". Reminders wait while the display is asleep, and one left up for 3 hours after bedtime is taken down on its own.

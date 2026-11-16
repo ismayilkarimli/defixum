@@ -102,7 +102,7 @@ $("add-rule").addEventListener("click", async () => {
   const r = {
     id: `r${Date.now()}`, name: "New rule", enabled: true, sites: [], mode: "pause", pause_seconds: 10,
     countdown: "breathe", prompts: ["reflect"],
-    daily_opens: null, daily_minutes: null,
+    daily_opens: null, daily_minutes: null, separate_limits: false,
     schedule: { enabled: false, days: [true, true, true, true, true, false, false], start: "00:00", end: "23:59" },
   };
   config.rules.push(r);
@@ -236,6 +236,12 @@ function renderEditor() {
   // limits
   bindLimit("f-opens-on", "f-opens", "daily_opens", 5);
   bindLimit("f-mins-on", "f-mins", "daily_minutes", 30);
+  const apart = $("f-apart");
+  apart.checked = !!r.separate_limits;
+  const drawApart = () => ($("f-apart-row").hidden = r.daily_opens == null && r.daily_minutes == null);
+  drawApart();
+  apart.addEventListener("change", () => { r.separate_limits = apart.checked; scheduleSave(); });
+  ["f-opens-on", "f-mins-on"].forEach((id) => $(id).addEventListener("change", drawApart));
 
   // schedule
   const sOn = $("f-sched-on"), sched = $("sched");

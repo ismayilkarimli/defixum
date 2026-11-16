@@ -72,6 +72,8 @@ pub struct Rule {
     pub prompts: Vec<PromptKind>,
     pub daily_opens: Option<u32>,
     pub daily_minutes: Option<u32>,
+    /// Each site gets its own daily limits (and its own unlocks) instead of sharing the rule's.
+    pub separate_limits: bool,
     pub schedule: Schedule,
 }
 
@@ -88,6 +90,7 @@ impl Default for Rule {
             prompts: vec![PromptKind::Reflect],
             daily_opens: None,
             daily_minutes: None,
+            separate_limits: false,
             schedule: Schedule::default(),
         }
     }
@@ -180,6 +183,8 @@ pub struct DayStats {
 #[serde(default)]
 pub struct Stats {
     pub days: BTreeMap<String, HashMap<String, DayStats>>,
+    /// The same counters per site, for rules with separate limits: date → limit key → counters.
+    pub sites: BTreeMap<String, HashMap<String, DayStats>>,
 }
 
 impl Stats {
@@ -191,10 +196,30 @@ impl Stats {
         self.days.entry(date.to_string()).or_default().entry(rule.to_string()).or_default()
     }
 
+    /// A limit's counters: the rule's own, or one site's when the key says so (see `limit_key`).
+    pub fn limit(&self, date: &str, key: &str) -> DayStats {
+        let map = if key.contains('|') { &self.sites } else { &self.days };
+        map.get(date).and_then(|d| d.get(key)).copied().unwrap_or_default()
+    }
+
+    /// Runs `f` on the rule's counters, and on the site's too when the limits are separate.
+    pub fn count(&mut self, date: &str, key: &str, f: impl Fn(&mut DayStats)) -> DayStats {
+        let rule = key.split('|').next().unwrap_or(key);
+        f(self.day_mut(date, rule));
+        if key == rule {
+            return self.day(date, rule);
+        }
+        let d = self.sites.entry(date.to_string()).or_default().entry(key.to_string()).or_default();
+        f(d);
+        *d
+    }
+
     pub fn prune(&mut self, keep_days: usize) {
-        while self.days.len() > keep_days {
-            let first = self.days.keys().next().cloned().unwrap();
-            self.days.remove(&first);
+        for map in [&mut self.days, &mut self.sites] {
+            while map.len() > keep_days {
+                let first = map.keys().next().cloned().unwrap();
+                map.remove(&first);
+            }
         }
     }
 }
@@ -254,6 +279,24 @@ pub fn rule_matches(rule: &Rule, url: &str) -> bool {
     rule.sites.iter().any(|s| !s.trim().is_empty() && site_matches(s, &host, &path))
 }
 
+/// What a page's limits and unlocks are kept under: the rule's id, or "id|site" (the site as the
+/// rule lists it) when the rule keeps separate limits per site.
+pub fn limit_key(rule: &Rule, url: &str) -> String {
+    let site = rule.separate_limits.then(|| {
+        let (host, path) = split_url(url)?;
+        rule.sites.iter().find(|s| !s.trim().is_empty() && site_matches(s, &host, &path)).cloned()
+    });
+    match site.flatten() {
+        Some(site) => format!("{}|{site}", rule.id),
+        None => rule.id.clone(),
+    }
+}
+
+/// The rule id inside a limit key.
+pub fn key_rule(key: &str) -> &str {
+    key.split('|').next().unwrap_or(key)
+}
+
 pub fn host_of(url: &str) -> String {
     split_url(url).map(|(h, _)| h).unwrap_or_default()
 }
@@ -308,6 +351,8 @@ impl Reason {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Verdict {
     pub rule_index: usize,
+    /// Where this page's limits and unlocks are kept (see `limit_key`).
+    pub key: String,
     /// None: the user is inside an allowance window (or nothing applies yet).
     pub reason: Option<Reason>,
 }
@@ -330,21 +375,23 @@ pub fn evaluate(
         .map(|(i, _)| i)
         .collect();
     if let Some(&i) = active.iter().find(|&&i| config.rules[i].mode == Mode::Block) {
-        return Some(Verdict { rule_index: i, reason: Some(Reason::Blocked) });
+        let key = config.rules[i].id.clone();
+        return Some(Verdict { rule_index: i, key, reason: Some(Reason::Blocked) });
     }
     let &i = active.first()?;
     let rule = &config.rules[i];
-    let day = stats.day(&today, &rule.id);
+    let key = limit_key(rule, url);
+    let day = stats.limit(&today, &key);
     let reason = if rule.daily_minutes.is_some_and(|m| day.seconds >= m as u64 * 60) {
         Some(Reason::TimeLimit)
-    } else if allowed(&rule.id) {
+    } else if allowed(&key) {
         None
     } else if rule.daily_opens.is_some_and(|n| day.opens >= n) {
         Some(Reason::OpenLimit)
     } else {
         Some(Reason::Pause)
     };
-    Some(Verdict { rule_index: i, reason })
+    Some(Verdict { rule_index: i, key, reason })
 }
 
 #[cfg(test)]
@@ -457,5 +504,33 @@ mod tests {
         // outside work hours the block rule is dormant
         let v = evaluate(&cfg, &Stats::default(), &at(2026, 10, 12, 20, 0), url, &no).unwrap();
         assert_eq!((v.rule_index, v.reason), (0, Some(Reason::Pause)));
+    }
+
+    #[test]
+    fn separate_limits_count_each_site_alone() {
+        let now = at(2026, 10, 12, 10, 0);
+        let mut cfg = Config::starter();
+        cfg.rules[0].daily_opens = Some(2);
+        cfg.rules[0].daily_minutes = Some(10);
+        let no = |_: &str| false;
+        let (yt, x) = ("https://m.youtube.com/watch", "https://x.com/home");
+        let mut stats = Stats::default();
+        stats.count("2026-10-12", &limit_key(&cfg.rules[0], yt), |d| d.opens += 2);
+        // together, by default: YouTube's opens use up x.com's too
+        assert_eq!(evaluate(&cfg, &stats, &now, x, &no).unwrap().reason, Some(Reason::OpenLimit));
+
+        cfg.rules[0].separate_limits = true;
+        let mut stats = Stats::default();
+        let key = limit_key(&cfg.rules[0], yt);
+        assert_eq!(key, "starter|youtube.com");
+        stats.count("2026-10-12", &key, |d| d.opens += 2);
+        assert_eq!(evaluate(&cfg, &stats, &now, yt, &no).unwrap().reason, Some(Reason::OpenLimit));
+        let v = evaluate(&cfg, &stats, &now, x, &no).unwrap();
+        assert_eq!((v.key.as_str(), v.reason), ("starter|x.com", Some(Reason::Pause)));
+        // unlocking YouTube doesn't unlock x.com
+        let yes_yt = |k: &str| k == "starter|youtube.com";
+        assert_eq!(evaluate(&cfg, &stats, &now, x, &yes_yt).unwrap().reason, Some(Reason::Pause));
+        // the rule's own totals still add up for Activity
+        assert_eq!(stats.day("2026-10-12", "starter").opens, 2);
     }
 }

@@ -50,8 +50,12 @@ fn open_windows(c: &Core) -> Vec<(String, String, Duration)> {
         .iter()
         .filter(|(_, &until)| until > now)
         .map(|(id, &until)| {
-            let name = c.config.rules.iter().find(|r| &r.id == id).map_or("A rule", |r| r.name.as_str());
-            (id.clone(), name.to_string(), until - now)
+            let name = c.config.rules.iter().find(|r| r.id == rules::key_rule(id)).map_or("A rule", |r| r.name.as_str());
+            let name = match id.split_once('|') {
+                Some((_, site)) => site.to_string(),
+                None => name.to_string(),
+            };
+            (id.clone(), name, until - now)
         })
         .collect();
     open.sort_by(|a, b| a.2.cmp(&b.2).then_with(|| a.1.cmp(&b.1)));
@@ -144,6 +148,9 @@ fn log(msg: impl AsRef<str>) {
 #[derive(Clone, Serialize)]
 struct Intercept {
     rule_id: String,
+    /// Where its limits and unlocks are kept: the rule id, or "id|site" for separate limits.
+    #[serde(skip)]
+    key: String,
     rule_name: String,
     site: String,
     reason: Reason,
@@ -650,7 +657,7 @@ fn waited_applies(reason: Reason, age: Duration) -> bool {
 fn dismiss_intercept(c: &mut Core) -> bool {
     let Some(i) = c.intercept.take() else { return false };
     if should_remember(i.reason, i.shown_at.elapsed(), i.pause_seconds) {
-        c.waited.insert(i.rule_id, (Instant::now(), i.prompt));
+        c.waited.insert(i.key, (Instant::now(), i.prompt));
     }
     true
 }
@@ -677,31 +684,28 @@ fn decide(c: &mut Core, target: &Target, focused: bool, url: Option<&str>, dt: D
         return if dismiss_intercept(c) { UiAction::Hide } else { UiAction::None };
     };
     let rule = c.config.rules[v.rule_index].clone();
+    let key = v.key;
     let today = rules::date_key(&local);
 
     let Some(mut reason) = v.reason else {
         // Inside a granted window: count the time while the user is actually there.
         if focused && macos::idle_seconds() < c.config.settings.idle_seconds as f64 {
-            c.stats.day_mut(&today, &rule.id).seconds += dt.as_secs_f64().round() as u64;
+            let secs = dt.as_secs_f64().round() as u64;
+            c.stats.count(&today, &key, |d| d.seconds += secs);
             c.stats_dirty = true;
         }
         return if dismiss_intercept(c) { UiAction::Hide } else { UiAction::None };
     };
 
-    if c.intercept.as_ref().is_some_and(|i| i.rule_id == rule.id) || c.cooldown.contains_key(&rule.id) {
+    if c.intercept.as_ref().is_some_and(|i| i.key == key) || c.cooldown.contains_key(&key) {
         return UiAction::None;
     }
-    if reason == Reason::Pause && c.expired.contains_key(&rule.id) {
+    if reason == Reason::Pause && c.expired.contains_key(&key) {
         reason = Reason::Expired;
     }
-    c.allowances.remove(&rule.id);
-    let day: DayStats = {
-        let d = c.stats.day_mut(&today, &rule.id);
-        if reason.can_continue() {
-            d.intercepts += 1;
-        }
-        *d
-    };
+    c.allowances.remove(&key);
+    let paused = reason.can_continue();
+    let day: DayStats = c.stats.count(&today, &key, |d| if paused { d.intercepts += 1 });
     c.stats_dirty = true;
     let until = match reason {
         Reason::Blocked if rule.schedule.enabled => Some(rule.schedule.end.clone()),
@@ -716,9 +720,9 @@ fn decide(c: &mut Core, target: &Target, focused: bool, url: Option<&str>, dt: D
     // A pause the user already sat through, shortly ago: same prompt, nothing left to wait for.
     let waited = c
         .waited
-        .get(&rule.id)
+        .get(&key)
         .is_some_and(|(t, _)| waited_applies(reason, t.elapsed()))
-        .then(|| c.waited.remove(&rule.id))
+        .then(|| c.waited.remove(&key))
         .flatten();
     // switching straight from another rule's site: that intercept is dismissed like any other
     dismiss_intercept(c);
@@ -753,6 +757,7 @@ fn decide(c: &mut Core, target: &Target, focused: bool, url: Option<&str>, dt: D
     };
     let i = Intercept {
         rule_id: rule.id.clone(),
+        key,
         rule_name: rule.name.clone(),
         site,
         reason,
@@ -812,10 +817,10 @@ async fn overlay_continue(
         }
         let i = c.intercept.take().unwrap();
         let minutes = minutes.clamp(1, 240);
-        c.allowances.insert(i.rule_id.clone(), Instant::now() + Duration::from_secs(minutes as u64 * 60));
-        c.expired.remove(&i.rule_id);
-        c.waited.remove(&i.rule_id);
-        c.stats.day_mut(&rules::date_key(&Local::now()), &i.rule_id).opens += 1;
+        c.allowances.insert(i.key.clone(), Instant::now() + Duration::from_secs(minutes as u64 * 60));
+        c.expired.remove(&i.key);
+        c.waited.remove(&i.key);
+        c.stats.count(&rules::date_key(&Local::now()), &i.key, |d| d.opens += 1);
         c.save_stats();
         log(format!("continue {} for {minutes} min", i.site));
         i.target.pid
@@ -839,12 +844,12 @@ async fn overlay_back(app: AppHandle, core: State<'_, Shared>, runner: State<'_,
         let mut c = core.lock().unwrap();
         let i = c.intercept.take().ok_or("no pause in progress")?;
         if i.reason.can_continue() {
-            c.stats.day_mut(&rules::date_key(&Local::now()), &i.rule_id).skips += 1;
+            c.stats.count(&rules::date_key(&Local::now()), &i.key, |d| d.skips += 1);
             c.save_stats();
         }
-        c.expired.remove(&i.rule_id);
-        c.waited.remove(&i.rule_id);
-        c.cooldown.insert(i.rule_id.clone(), Instant::now() + Duration::from_secs(3));
+        c.expired.remove(&i.key);
+        c.waited.remove(&i.key);
+        c.cooldown.insert(i.key.clone(), Instant::now() + Duration::from_secs(3));
         log(format!("back from {}", i.site));
         (i.target, format!("{}#{}", c.calm_url(), i.site))
     };
@@ -1024,8 +1029,10 @@ async fn save_config(app: AppHandle, core: State<'_, Shared>, mut config: Config
     let s = &config.settings;
     switcher::sync(s.switch_limit, s.switches_per_minute, s.switch_cooldown_seconds);
     let mut c = core.lock().unwrap();
-    let ids: Vec<String> = config.rules.iter().map(|r| r.id.clone()).collect();
-    c.allowances.retain(|k, _| ids.contains(k));
+    // unlocks of deleted rules go, and per-site ones when a rule's limits are shared again (or the other way)
+    c.allowances.retain(|k, _| {
+        config.rules.iter().any(|r| r.id == rules::key_rule(k) && r.separate_limits == k.contains('|'))
+    });
     // turned on, or moved: whatever has already passed tonight is not owed
     let s = &c.config.settings;
     let changed = !s.bedtime
