@@ -39,8 +39,25 @@ fn show(t: Toast) {
         tick();
         TIMER.set(Some(dom::interval(500, tick)));
     }
+    hold_bar(!moving && t.holding, t.hold_ms);
     // restart the fade, so a refused press while it is up gives it the full time again
     dom::restart_class(&body, "on");
+}
+
+/// The bar that fills while ⌘Tab is held down toward getting through; empty when let go.
+fn hold_bar(holding: bool, ms: u32) {
+    let body = dom::body();
+    let fill = dom::by_id("fill");
+    dom::toggle_class(&body, "holding", holding);
+    // back to empty at once, then fill over the hold
+    dom::set_style(&fill, "transition", "none");
+    dom::set_style(&fill, "transform", "scaleX(0)");
+    let _ = fill.offset_width();
+    if holding {
+        let ms = if ms == 0 { 5000 } else { ms };
+        dom::set_style(&fill, "transition", &format!("transform {ms}ms linear"));
+        dom::set_style(&fill, "transform", "scaleX(1)");
+    }
 }
 
 pub fn start() {
@@ -51,6 +68,8 @@ pub fn start() {
         .child(h("small").id("why").text("Stay with what you have open."));
     let body = dom::body();
     body.append_child(&status.el()).unwrap();
+    let bar = h("span").class("bar").attr("aria-hidden", "true").child(h("span").id("fill"));
+    body.append_child(&bar.el()).unwrap();
     // only the note to get up takes clicks: one click puts it away
     dom::on::<web_sys::Event>(&body, "click", |_| {
         if KIND.with(|k| k.borrow().as_str() == "move") {
@@ -61,7 +80,14 @@ pub fn start() {
     });
     match dom::param("demo").filter(|d| !d.is_empty()).as_deref() {
         Some("move") => show(Toast { kind: "move".into(), minutes: 45, seconds: 10, ..Toast::default() }),
-        Some(_) => show(Toast { kind: "switch".into(), until: dom::now_ms() + 58000.0, limit: 6, ..Toast::default() }),
+        Some(d) => show(Toast {
+            kind: "switch".into(),
+            until: dom::now_ms() + 58000.0,
+            limit: 6,
+            holding: d == "hold",
+            hold_ms: 5000,
+            ..Toast::default()
+        }),
         None => tauri::listen("toast", show),
     }
 }

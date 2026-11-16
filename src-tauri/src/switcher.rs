@@ -59,6 +59,11 @@ impl Limiter {
         Verdict::Allow
     }
 
+    /// The end of the cooldown, while there is one.
+    pub fn until(&self) -> Option<Instant> {
+        self.until
+    }
+
     /// The user held on through the cooldown: it ends, and the count starts fresh.
     pub fn lift(&mut self) {
         self.until = None;
@@ -83,8 +88,9 @@ static COOLDOWN_SECS: AtomicU32 = AtomicU32::new(60);
 static STARTED: AtomicBool = AtomicBool::new(false);
 static PORT: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 static LIMITER: Mutex<Option<Limiter>> = Mutex::new(None);
-/// Told when Cmd+Tab was swallowed, with the end of the cooldown and the limit.
-static ON_BLOCK: OnceLock<Box<dyn Fn(Instant, u32) + Send + Sync>> = OnceLock::new();
+/// Told when Cmd+Tab was swallowed, with the end of the cooldown, the limit, and whether Tab is
+/// being held down toward `HOLD_THROUGH` (false once it is let go early).
+static ON_BLOCK: OnceLock<Box<dyn Fn(Instant, u32, bool) + Send + Sync>> = OnceLock::new();
 /// Told when a long hold got past the cooldown.
 static ON_LIFT: OnceLock<Box<dyn Fn() + Send + Sync>> = OnceLock::new();
 
@@ -102,12 +108,20 @@ fn set_tap(on: bool) {
 
 /// Called once at launch with what to do when Cmd+Tab is swallowed, and when a long hold gets
 /// past the cooldown.
-pub fn init(on_block: impl Fn(Instant, u32) + Send + Sync + 'static, on_lift: impl Fn() + Send + Sync + 'static) {
+pub fn init(on_block: impl Fn(Instant, u32, bool) + Send + Sync + 'static, on_lift: impl Fn() + Send + Sync + 'static) {
     let _ = ON_BLOCK.set(Box::new(on_block));
     let _ = ON_LIFT.set(Box::new(on_lift));
 }
 
 /// Ends the cooldown after a long hold and tells the app.
+/// Tells the app a refused hold started or stopped, so the toast can show it filling.
+fn tell_hold(holding: bool) {
+    let until = LIMITER.lock().unwrap().as_ref().and_then(|l| l.until());
+    if let (Some(until), Some(tell)) = (until, ON_BLOCK.get()) {
+        tell(until, LIMIT.load(Ordering::SeqCst), holding);
+    }
+}
+
 fn lift() {
     if let Some(l) = LIMITER.lock().unwrap().as_mut() {
         l.lift();
@@ -152,6 +166,10 @@ fn start() {
                     }
                     CGEventType::FlagsChanged => {
                         if !event.get_flags().contains(CGEventFlags::CGEventFlagCommand) {
+                            // Cmd let go mid-hold: the Tab key-up that follows no longer has Cmd
+                            if hold.blocked && hold.tab_since.is_some() {
+                                tell_hold(false);
+                            }
                             *hold = Hold::default();
                         }
                         return CallbackResult::Keep;
@@ -172,6 +190,7 @@ fn start() {
                     if down && !repeat {
                         // Tab let go and pressed again under the same Cmd: a new hold
                         hold.tab_since = Some(Instant::now());
+                        tell_hold(true);
                     } else if down && held {
                         // Tab is still down (the keyboard repeats it): let this press through as a
                         // fresh one, so the switcher opens now
@@ -185,6 +204,8 @@ fn start() {
                         if held {
                             hold.blocked = false;
                             lift();
+                        } else if hold.tab_since.is_some() {
+                            tell_hold(false);
                         }
                         hold.tab_since = None;
                     }
@@ -201,7 +222,7 @@ fn start() {
                     hold.blocked = verdict != Verdict::Allow;
                     hold.tab_since = hold.blocked.then(Instant::now);
                     if let (Verdict::Block(until), Some(tell)) = (verdict, ON_BLOCK.get()) {
-                        tell(until, limit);
+                        tell(until, limit, true);
                     }
                 }
                 if hold.blocked {

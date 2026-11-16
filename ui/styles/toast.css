@@ -17,6 +17,28 @@ body {
 }
 body.on { animation: life var(--life, 5s) ease both; }
 body.move { cursor: pointer; }
+/* held on: stays up while the bar fills */
+body.on.holding { animation: none; opacity: 1; }
+.bar {
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  bottom: 9px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(226, 236, 222, 0.16);
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+body.holding .bar { opacity: 1; }
+#fill {
+  display: block;
+  height: 100%;
+  background: var(--moss);
+  transform: scaleX(0);
+  transform-origin: left;
+}
 @keyframes life {
   0% { opacity: 0; transform: translateY(-6px); }
   6%, 88% { opacity: 1; transform: none; }

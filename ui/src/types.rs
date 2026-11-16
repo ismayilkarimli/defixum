@@ -216,6 +216,8 @@ pub struct Toast {
     pub kind: String,
     pub minutes: u32,
     pub seconds: u32,
+    pub holding: bool,
+    pub hold_ms: u32,
     /// end of the cooldown, unix milliseconds
     pub until: f64,
     pub limit: u32,

@@ -367,6 +367,9 @@ struct Toast {
     /// for "move": minutes at the screen, and how long the note stays
     minutes: u32,
     seconds: u32,
+    /// for "switch": Cmd+Tab is being held down to get through, and how long that takes (ms)
+    holding: bool,
+    hold_ms: u64,
 }
 
 /// Shows the toast near the top of the screen under the pointer, without taking focus. With
@@ -1488,11 +1491,14 @@ pub fn run() {
             let _ = toast.set_ignore_cursor_events(true);
             let toast_app = handle.clone();
             let lift_app = handle.clone();
-            switcher::init(move |until, limit| {
+            switcher::init(move |until, limit, holding| {
                 let app = toast_app.clone();
                 let ms = Local::now().timestamp_millis() + until.saturating_duration_since(Instant::now()).as_millis() as i64;
-                let t = Toast { kind: "switch", until: ms, limit, ..Default::default() };
-                let _ = toast_app.run_on_main_thread(move || toast_show(&app, t, Some(TOAST_FOR)));
+                let hold_ms = switcher::HOLD_THROUGH.as_millis() as u64;
+                let t = Toast { kind: "switch", until: ms, limit, holding, hold_ms, ..Default::default() };
+                // stays up while the hold fills; let go early and it fades as usual
+                let stay = (!holding).then_some(TOAST_FOR);
+                let _ = toast_app.run_on_main_thread(move || toast_show(&app, t, stay));
             }, move || {
                 // held through: the note about the cooldown is out of date
                 let app = lift_app.clone();
