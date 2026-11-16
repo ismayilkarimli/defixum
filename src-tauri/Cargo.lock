@@ -535,7 +535,7 @@ dependencies = [
 
 [[package]]
 name = "defixum"
-version = "0.1.9"
+version = "0.1.10"
 dependencies = [
  "chrono",
  "core-foundation",
