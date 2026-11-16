@@ -1,4 +1,5 @@
 mod bedtime;
+mod calm;
 mod browser;
 mod macos;
 mod prompts;
@@ -225,8 +226,10 @@ impl Core {
         write_json(&self.data_dir.join("bedtime.json"), &self.bedtime_log);
     }
 
-    fn calm_url(&self) -> String {
+    /// Writes the calm page for `site` and returns its address.
+    fn calm_url(&self, site: &str) -> String {
         let path = self.data_dir.join("calm.html");
+        let _ = std::fs::write(&path, calm::page(site, Local::now()));
         format!("file://{}", path.to_string_lossy().replace(' ', "%20"))
     }
 }
@@ -851,7 +854,7 @@ async fn overlay_back(app: AppHandle, core: State<'_, Shared>, runner: State<'_,
         c.waited.remove(&i.key);
         c.cooldown.insert(i.key.clone(), Instant::now() + Duration::from_secs(3));
         log(format!("back from {}", i.site));
-        (i.target, format!("{}#{}", c.calm_url(), i.site))
+        (i.target, format!("{}#{}", c.calm_url(&i.site), i.site))
     };
     overlay_hide(&app);
     macos::activate(target.pid);
@@ -1109,7 +1112,6 @@ async fn test_browser(core: State<'_, Shared>, runner: State<'_, Runner>, bundle
 
 // ---------- setup ----------
 
-const CALM_HTML: &str = include_str!("../calm.html");
 
 fn data_dir(app: &AppHandle) -> PathBuf {
     let dir = std::env::var_os("DEFIXUM_DATA")
@@ -1169,7 +1171,6 @@ pub fn run() {
             let handle = app.handle().clone();
             let dir = data_dir(&handle);
             let _ = LOG_PATH.set(dir.join("defixum.log"));
-            let _ = std::fs::write(dir.join("calm.html"), CALM_HTML);
 
             let first_run = !dir.join("config.json").exists();
             let config: Config = read_json(&dir.join("config.json")).unwrap_or_else(Config::starter);
@@ -1207,7 +1208,7 @@ pub fn run() {
             app.manage(Runner(runner.clone()));
 
             // Windows
-            let overlay = WebviewWindowBuilder::new(app, "overlay", WebviewUrl::App("overlay.html".into()))
+            let overlay = WebviewWindowBuilder::new(app, "overlay", WebviewUrl::App("index.html?w=overlay".into()))
                 .title("Defixum")
                 .decorations(false)
                 .transparent(true)
@@ -1235,7 +1236,7 @@ pub fn run() {
 
             // The bedtime reminder is the same forest in a second window, one level above the
             // overlay so it also covers a pause.
-            let bedtime_win = WebviewWindowBuilder::new(app, "bedtime", WebviewUrl::App("overlay.html?mode=bedtime".into()))
+            let bedtime_win = WebviewWindowBuilder::new(app, "bedtime", WebviewUrl::App("index.html?w=overlay&mode=bedtime".into()))
                 .title("Defixum")
                 .decorations(false)
                 .transparent(true)
@@ -1258,7 +1259,7 @@ pub fn run() {
             });
 
             // A small note under the menu bar when Cmd+Tab is refused. It never takes focus or clicks.
-            let toast = WebviewWindowBuilder::new(app, "toast", WebviewUrl::App("toast.html".into()))
+            let toast = WebviewWindowBuilder::new(app, "toast", WebviewUrl::App("index.html?w=toast".into()))
                 .title("Defixum")
                 .inner_size(TOAST_SIZE.0, TOAST_SIZE.1)
                 .decorations(false)

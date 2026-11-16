@@ -4,11 +4,11 @@
 
 ## Platform
 
-web (Tauri 2 webviews on macOS: a settings window and a full-screen pause overlay; vanilla HTML/CSS/JS in `ui/`)
+web (Tauri 2 webviews on macOS: a settings window and a full-screen pause overlay; a Rust → WebAssembly front end in `ui/`)
 
 ## Stack
 
-Vanilla HTML, CSS and JS served by Tauri, talking to Rust through `window.__TAURI__`. No framework or build step for the UI.
+Rust compiled to WebAssembly (wasm-bindgen + web-sys, no framework), built by Trunk and served by Tauri; it talks to the app through `window.__TAURI__`. Styles are plain CSS compiled into the binary.
 
 ## Users
 

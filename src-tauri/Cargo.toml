@@ -13,6 +13,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 chrono = "0.4.45"
 core-foundation = "0.10.1"
+forest = { path = "../forest" }
 core-foundation-sys = "0.8.7"
 core-graphics = { version = "0.25.0", features = ["elcapitan"] }
 objc2 = "0.6.5"

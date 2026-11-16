@@ -1,0 +1,503 @@
+:root {
+  /* Sky and tree colours are set from the clock by paint(); these are a daytime fallback. */
+  --sky-top: #a5c0bf;
+  --horizon: #dfe8de;
+  --near: #0a1c15;
+  --stars: 0;
+
+  /* in the sky (daylight) */
+  --ink: #10221a;
+  --muted: #24362c;
+  --site: #2a6644;
+  --mark: #2b5a42;
+  --bloom: rgba(255, 255, 248, 0.75);
+  /* the sun or moon the countdown sits on */
+  --body-hi: #fffef7;
+  --body: #f5f4e7;
+  --body-edge: #e4e9da;
+  --body-glow: rgba(255, 252, 236, 0.7);
+  --amber: #8a520f;
+  --field: rgba(255, 255, 255, 0.5);
+  --field-line: rgba(16, 34, 26, 0.2);
+  --lift: 0 0 22px rgba(236, 242, 232, 0.55);
+
+  /* on the forest floor, which is always dark */
+  --floor-ink: #e6eee3;
+  --floor-muted: rgba(230, 238, 227, 0.62);
+  --lichen: #dbe7c9;
+  --chip: rgba(230, 238, 227, 0.1);
+  --chip-hover: rgba(230, 238, 227, 0.19);
+
+  --display: Optima, "Optima Nova", Candara, "Segoe UI", sans-serif;
+  --floor: clamp(170px, 21vh, 230px);
+  --ring: 300px;
+  /* One vertical rhythm: the visible gap between every pair of stacked blocks (ring, headline,
+     sentence, answer box, detail). Text blocks and the ring give back their empty edges with
+     negative margins, so the gap is measured between what you can see. */
+  --gap: 40px;
+  /* half-leading (line-height minus the glyph box, halved) of each text block, in em */
+  --trim-h1: 0.05;
+  --trim-sentence: 0.1;
+  --trim-detail: 0.15;
+}
+:root.night {
+  --ink: #e8f0e5;
+  --muted: #cfdacb;
+  --site: #cfe2a4;
+  --mark: #e3ecd7;
+  --bloom: rgba(226, 238, 214, 0.16);
+  --body-hi: #f1f5e8;
+  --body: #dbe3cf;
+  --body-edge: #c3cfb9;
+  --body-glow: rgba(220, 232, 205, 0.3);
+  --amber: #e8b866;
+  --field: rgba(255, 255, 255, 0.07);
+  --field-line: rgba(255, 255, 255, 0.17);
+  --lift: 0 1px 14px rgba(0, 8, 6, 0.45);
+}
+* { box-sizing: border-box; margin: 0; }
+html, body {
+  height: 100%;
+  color: var(--ink);
+  font: 15px/1.5 -apple-system, system-ui, sans-serif;
+  user-select: none;
+  cursor: default;
+  overflow: hidden;
+}
+html { background: var(--near); }
+/* light text on dark grounds renders too heavy with macOS stem darkening; dark text keeps it */
+.night body, .floor { -webkit-font-smoothing: antialiased; }
+::selection { background: color-mix(in srgb, var(--site) 30%, transparent); }
+
+/* ---------- the forest ---------- */
+.scene {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(to bottom, var(--sky-top), var(--horizon) 68%);
+  overflow: hidden;
+}
+.stars { position: absolute; inset: 0 0 40% 0; width: 100%; height: 60%; opacity: var(--stars); }
+.stars circle { fill: #eef3e6; }
+.stars .tw { animation: twinkle var(--tw) ease-in-out var(--twd) infinite alternate; }
+@keyframes twinkle { to { opacity: 0.12; } }
+/* the Milky Way: a faint tilted haze the denser stars gather along */
+.milky {
+  position: absolute;
+  left: -25%;
+  width: 150%;
+  height: 56%;
+  top: var(--milky-y, 0%);
+  transform: rotate(var(--milky-tilt, -16deg));
+  filter: blur(6px);
+  background: radial-gradient(ellipse 22% 24% at 30% 52%, rgba(214, 228, 218, 0.07), transparent 72%),
+    radial-gradient(ellipse 26% 30% at 52% 48%, rgba(222, 232, 222, 0.085), transparent 72%),
+    radial-gradient(ellipse 20% 22% at 72% 54%, rgba(214, 228, 218, 0.06), transparent 72%),
+    radial-gradient(ellipse 60% 34% at 50% 50%, rgba(200, 218, 206, 0.05), transparent 75%);
+  opacity: var(--stars);
+}
+.meteor {
+  position: absolute;
+  width: 150px;
+  height: 1.5px;
+  border-radius: 1px;
+  background: linear-gradient(to right, transparent, rgba(244, 248, 236, 0.95));
+  transform-origin: right center;
+  opacity: 0;
+  animation: meteor 1.2s cubic-bezier(0.3, 0.6, 0.5, 1) forwards;
+}
+@keyframes meteor {
+  0% { opacity: 0; transform: rotate(var(--a)) translateX(0); }
+  12% { opacity: 1; }
+  100% { opacity: 0; transform: rotate(var(--a)) translateX(var(--len)); }
+}
+
+/* clouds: soft puffs drifting across the daytime sky, tinted by the horizon (warm at sunset) */
+.clouds { position: absolute; inset: 0; pointer-events: none; opacity: calc(1 - var(--stars)); }
+.cloud {
+  position: absolute;
+  left: 0;
+  width: var(--w);
+  height: calc(var(--w) * 0.3);
+  --cloud: color-mix(in srgb, var(--cloud-base, #fff) calc(var(--a, 55%) * var(--cloud-dim, 1)), transparent);
+  animation: cloud var(--t) linear var(--d) infinite;
+}
+.cloud i { position: absolute; border-radius: 50%; background: radial-gradient(closest-side, var(--cloud), transparent); }
+/* under a full sky the puffs merge into a deck of cloud pressing down from the top */
+.deck {
+  position: absolute;
+  inset: 0 0 35% 0;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--cloud-base, #fff) 70%, transparent), color-mix(in srgb, var(--cloud-base, #fff) 30%, transparent) 55%, transparent);
+  opacity: var(--deck, 0);
+}
+@keyframes cloud { from { transform: translateX(calc(-1 * var(--w))); } to { transform: translateX(100vw); } }
+
+/* birds: small flocks crossing in daylight, each bird flapping and gliding on its own beat */
+.birds { position: absolute; inset: 0; pointer-events: none; }
+.flock { position: absolute; left: 0; top: var(--y); animation: fly var(--t) linear var(--d) forwards; }
+@keyframes fly { from { transform: translateX(var(--x0)); } to { transform: translateX(var(--x1)); } }
+.flock svg { display: block; overflow: visible; animation: bob var(--bt) ease-in-out infinite alternate; }
+@keyframes bob { to { transform: translateY(var(--bob)); } }
+.flock path { fill: none; stroke: var(--bird); stroke-linecap: round; stroke-linejoin: round; }
+
+/* fireflies at night and motes of light at golden hour, hovering among the near trees */
+.glimmers { position: absolute; inset: 0; pointer-events: none; }
+/* no fireflies in rain or snow, and no motes of sunlight when cloud hides the sun */
+.glimmers.fireflies { opacity: calc(var(--stars) * var(--dry, 1)); }
+.glimmers.motes { opacity: var(--golden, 0); }
+.glimmers b {
+  position: absolute;
+  width: var(--s);
+  height: var(--s);
+  border-radius: 50%;
+  animation: wander var(--t) ease-in-out var(--d) infinite alternate, glow var(--g) ease-in-out var(--d) infinite;
+}
+.fireflies b { background: #f1ffae; box-shadow: 0 0 7px 2px rgba(214, 255, 130, 0.55); }
+.motes b { background: #fff4d6; box-shadow: 0 0 6px 1px rgba(255, 230, 170, 0.5); }
+@keyframes wander {
+  0% { transform: translate(0, 0); }
+  35% { transform: translate(var(--x1), var(--y1)); }
+  70% { transform: translate(var(--x2), var(--y2)); }
+  100% { transform: translate(var(--x3), var(--y3)); }
+}
+@keyframes glow { 0%, 100% { opacity: 0.08; } 45%, 60% { opacity: 1; } }
+.layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: translateY(calc(var(--depth) * 1.6vh));
+  opacity: 0;
+  transition: transform 1600ms cubic-bezier(0.16, 1, 0.3, 1), opacity 1100ms ease-out;
+  transition-delay: calc(var(--i) * 90ms);
+}
+.layer path { fill: var(--fill); }
+body.in .layer { transform: none; opacity: 1; }
+/* Fog pooled at the foot of each far tree line: soft clouds over a faint band. */
+.mists { position: absolute; inset: 0; pointer-events: none; }
+.mist {
+  position: absolute;
+  left: -15%;
+  width: 130%;
+  --fog: color-mix(in srgb, var(--horizon) 70%, transparent);
+  background:
+    radial-gradient(ellipse 22% 46% at 14% 55%, var(--fog), transparent 72%),
+    radial-gradient(ellipse 26% 40% at 43% 62%, var(--fog), transparent 72%),
+    radial-gradient(ellipse 20% 50% at 70% 50%, var(--fog), transparent 72%),
+    radial-gradient(ellipse 24% 44% at 93% 60%, var(--fog), transparent 72%),
+    linear-gradient(to bottom, transparent, color-mix(in srgb, var(--horizon) 38%, transparent) 55%, transparent);
+  animation: drift var(--drift, 90s) ease-in-out infinite alternate;
+}
+@keyframes drift { from { transform: translateX(-4%); } to { transform: translateX(4%); } }
+/* While breathing, the fog lifts on the in-breath and settles on the out-breath. */
+body.breathing .mists { animation: lift 8s ease-in-out infinite; }
+@keyframes lift { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2.2vh); } }
+
+/* weather: rain or snow falling in front of the trees, lightning behind them */
+.precip { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.flash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 70% 60% at var(--fx) 0%, rgba(236, 242, 255, 0.95), rgba(220, 230, 250, 0.35) 55%, transparent 80%);
+  opacity: 0;
+  animation: flash 0.9s ease-out forwards;
+}
+/* two soft pulses, well under three flashes a second */
+@keyframes flash {
+  0% { opacity: 0; }
+  6% { opacity: var(--peak); }
+  18% { opacity: 0.04; }
+  34% { opacity: calc(var(--peak) * 0.7); }
+  100% { opacity: 0; }
+}
+
+/* ---------- the sky: countdown and words ---------- */
+main {
+  position: fixed;
+  inset: 0 0 var(--floor) 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gap);
+  text-align: center;
+  padding: 2rem 1.5rem 15vh;
+  opacity: 0;
+  transition: opacity 700ms ease 250ms;
+}
+body.in main { opacity: 1; }
+/* haze behind the words, light by day and dark by night, strongest at dawn and dusk */
+main::before {
+  content: "";
+  position: absolute;
+  inset: 0 6%;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(ellipse 46% 44% at 50% 52%, var(--scrim, transparent), transparent 75%);
+}
+main.typing { padding-bottom: 21vh; }
+
+.breath {
+  position: relative;
+  width: var(--ring);
+  height: var(--ring);
+  flex: none;
+  display: grid;
+  place-items: center;
+  /* The box is bigger than the circle, so pull the neighbours in to the circle's edge. At rest the
+     breathing circle spans 51.2% of the box (24.4% in from each edge); it swells into the gap and
+     back while breathing. */
+  margin: calc(var(--ring) * -0.244) 0;
+}
+.halo, .core {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+/* sun through haze by day, moon by night */
+/* under heavy cloud the sun is a pale disc without much glow */
+.halo {
+  background: radial-gradient(circle, color-mix(in srgb, var(--bloom) calc(100% - var(--gloom, 0) * 75%), transparent) 0%, transparent 68%);
+  transform: scale(0.72);
+}
+.core {
+  inset: 18%;
+  background: radial-gradient(circle at 46% 42%, var(--body-hi), var(--body) 58%, var(--body-edge));
+  --glow: color-mix(in srgb, var(--body-glow) calc(100% - var(--gloom, 0) * 70%), transparent);
+  box-shadow: 0 0 70px var(--glow), 0 0 18px var(--glow);
+  transform: scale(0.62);
+}
+.breathing .halo { animation: halo 8s ease-in-out infinite; }
+.breathing .core { animation: core 8s ease-in-out infinite; }
+@keyframes core { 0%, 100% { transform: scale(0.62); } 50% { transform: scale(1); } }
+@keyframes halo { 0%, 100% { transform: scale(0.72); opacity: .6; } 50% { transform: scale(1.12); opacity: 1; } }
+.settled .core { transform: scale(0.8); transition: transform 900ms ease; }
+.settled .halo { transform: scale(0.9); transition: transform 900ms ease; }
+/* blocked: a low amber sun */
+.stopped { --body-hi: #fbe3b4; --body: #ecb873; --body-edge: #d99a50; --body-glow: rgba(236, 184, 115, 0.45); }
+.stopped .core { transform: scale(0.8); }
+.stopped .halo { transform: scale(0.9); }
+
+/* bedtime: the sun or moon rests at full size (the breath's in-breath) and shows the time left */
+.bedtime .breath { margin-block: calc(var(--ring) * -0.18); }
+.bedtime .breath .core { transform: none; }
+.bedtime .breath .halo { transform: scale(1.05); }
+
+/* fill / drain: a progress ring where the breathing circle would be */
+.ring {
+  display: none;
+  position: absolute;
+  left: 18%;
+  top: 18%;
+  width: 64%;
+  height: 64%;
+  transform: rotate(-90deg); /* the arc starts at 12 o'clock */
+  overflow: visible;
+}
+.ring circle { fill: none; stroke-width: 1.4; }
+.ring .track { stroke: color-mix(in srgb, var(--mark) 22%, transparent); }
+.ring .arc { stroke: var(--mark); stroke-linecap: round; }
+.breath.is-ring { margin-block: calc(var(--ring) * -0.186); } /* the progress ring's outer edge */
+.is-ring .ring { display: block; }
+.is-ring .core { transform: scale(0.84); }
+.is-ring .halo { transform: scale(0.9); opacity: 0.55; }
+.is-ring .cue { display: none; }
+.is-ring.settled .track { stroke: color-mix(in srgb, var(--mark) 40%, transparent); transition: stroke 900ms ease; }
+.is-ring.settled .arc { opacity: 0.55; transition: opacity 900ms ease; }
+
+.readout {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+/* numbers and cue sit on the sun or moon, so they are always dark */
+.count {
+  color: #13251c;
+  font-family: var(--display);
+  font-size: 64px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.cue {
+  font-size: 14px;
+  min-height: 1.5em;
+  color: rgba(19, 37, 28, 0.72);
+  transition: opacity 600ms ease;
+}
+
+h1 {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 36px;
+  line-height: 1.18;
+  max-width: 20em;
+  text-wrap: balance;
+  text-shadow: var(--lift);
+  margin-block: calc(var(--trim-h1) * -1em);
+}
+.site { color: var(--site); }
+.detail {
+  margin-block: calc(var(--trim-detail) * -1em);
+  color: var(--muted);
+  font-size: 15px;
+  max-width: 32rem;
+  text-wrap: pretty;
+  text-shadow: var(--lift);
+}
+.detail .over { color: var(--amber); }
+
+.commit {
+  position: relative; /* anchors the unlock hint */
+  width: min(34rem, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+.commit[hidden] { display: none; }
+.sentence {
+  font-family: var(--display);
+  font-size: 22px;
+  line-height: 1.35;
+  text-wrap: balance;
+  text-shadow: var(--lift);
+  margin-block: calc(var(--trim-sentence) * -1em);
+  -webkit-user-select: none;
+  user-select: none;
+}
+.sentence::before { content: "\201C"; }
+.sentence::after { content: "\201D"; }
+textarea {
+  font: inherit;
+  font-size: 16px;
+  color: var(--ink);
+  caret-color: var(--site);
+  text-align: center;
+  width: 100%;
+  resize: none;
+  overflow: hidden;
+  background: var(--field);
+  border: 1px solid var(--field-line);
+  border-radius: 14px;
+  padding: 0.75rem 1rem;
+  cursor: text;
+  -webkit-user-select: text;
+  user-select: text;
+  transition: border-color 300ms ease, background 300ms ease, opacity 300ms ease;
+}
+textarea::placeholder { color: var(--muted); }
+textarea:focus-visible { outline: 2px solid var(--mark); outline-offset: 3px; }
+textarea:disabled { opacity: 0.6; cursor: default; }
+textarea.ok { border-color: var(--site); box-shadow: inset 0 0 0 1px var(--site); }
+/* Floats in the middle of the gap under the answer box, so it takes no room of its own: an
+   empty hint costs nothing and a filled one moves nothing. */
+.unlock-hint {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin: calc((var(--gap) - 1.5em) / 2) 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+  transition: color 200ms ease;
+}
+.unlock-hint.ready { color: var(--site); }
+.unlock-hint.nudge { animation: nudge 360ms ease; color: var(--ink); }
+@keyframes nudge { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+
+/* ---------- the forest floor: the choices ---------- */
+.floor {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--floor);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 2.25rem;
+  color: var(--floor-ink);
+  opacity: 0;
+  transition: opacity 700ms ease 450ms;
+}
+body.in .floor { opacity: 1; }
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+}
+button {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.7rem 1.4rem;
+  cursor: pointer;
+  transition: background 150ms ease, transform 150ms ease, opacity 300ms ease;
+}
+button:focus-visible { outline: 2px solid var(--lichen); outline-offset: 3px; }
+button:active { transform: scale(0.97); }
+.primary {
+  background: var(--lichen);
+  color: #0e1e16;
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+}
+.primary:hover { background: #edf4e1; }
+.later {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+  align-items: center;
+  color: var(--floor-muted);
+  font-size: 14px;
+  transition: opacity 500ms ease;
+}
+.later span { margin-right: 0.35rem; }
+.later button {
+  background: var(--chip);
+  padding: 0.5rem 0.95rem;
+  font-size: 14px;
+  color: var(--floor-ink);
+  font-variant-numeric: tabular-nums;
+}
+.later button:hover { background: var(--chip-hover); }
+.later button:disabled { opacity: 0.35; cursor: default; }
+.later button:disabled:hover { background: var(--chip); }
+.later[hidden] { display: none; }
+/* invisible during the countdown, but keeping its room so nothing moves when it appears */
+body.waiting .later { opacity: 0; pointer-events: none; }
+/* An error takes the footer hint's place rather than a line of its own. */
+/* bedtime past the sleep time stacks a fourth row; tighten it so the hint has its own line */
+body.bedtime .actions { gap: 11px; }
+body.bedtime .floor { padding-bottom: 3.4rem; }
+.error, .hint { position: absolute; bottom: 1.4rem; left: 0; right: 0; text-align: center; font-size: 12px; }
+.error { font-size: 13px; color: #f0c27a; }
+.error:not(:empty) + .hint { visibility: hidden; }
+.hint { color: var(--floor-muted); font-size: 13px; }
+
+@media (max-height: 860px) {
+  :root { --gap: 32px; }
+  main { padding-bottom: 11vh; }
+  main.typing { padding-bottom: 15vh; }
+}
+/* typing stacks the most text, so its countdown shrinks sooner */
+@media (max-height: 920px) {
+  main.typing { --ring: 190px; --gap: 28px; }
+  main.typing .count { font-size: 50px; }
+}
+@media (max-height: 720px) { :root { --ring: 220px; --trim-h1: 0.04; } h1 { font-size: 29px; } }
+@media (prefers-reduced-motion: reduce) {
+  .birds, .meteor, .flash { display: none; }
+  .cloud, .glimmers b, .stars .tw { animation: none; }
+  .cloud { transform: translateX(var(--rest)); }
+  .breathing .halo, .breathing .core, .mist, body.breathing .mists, .unlock-hint.nudge { animation: none; }
+  .core { transform: scale(0.8); }
+  .layer, main, .floor { transition: none; }
+  .ring *, .is-ring.settled .track, .is-ring.settled .arc { transition: none !important; }
+}

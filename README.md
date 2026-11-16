@@ -58,15 +58,25 @@ Defixum reads only the address of the tab in front of you. Everything stays on y
 
 ## Running it locally
 
-**You need:** macOS 13+, the [Rust toolchain](https://rustup.rs), [Node.js](https://nodejs.org) 18+, and the Xcode Command Line Tools (`xcode-select --install`).
+**You need:** macOS 13+, the [Rust toolchain](https://rustup.rs) and the Xcode Command Line Tools (`xcode-select --install`).
 
 ```bash
 git clone https://github.com/ismayilkarimli/defixum.git
 cd defixum
-npm install
-npm run dev        # run in development mode
-npm run build      # build Defixum.app into src-tauri/target/release/bundle/macos
-npm run release    # universal (Apple Silicon + Intel) .app and .dmg, ad-hoc signed
+rustup target add wasm32-unknown-unknown
+cargo install trunk tauri-cli
+cd src-tauri
+cargo tauri dev                       # run in development mode
+cargo tauri build --bundles app       # build Defixum.app into src-tauri/target/release/bundle/macos
+```
+
+The whole app is Rust. The windows are a Rust → WebAssembly front end (`ui/`, built by [Trunk](https://trunkrs.dev)); the forest drawing is shared with the app through `forest/`.
+
+For a universal (Apple Silicon + Intel) .app and .dmg, ad-hoc signed:
+
+```bash
+rustup target add aarch64-apple-darwin x86_64-apple-darwin
+CI=true APPLE_SIGNING_IDENTITY=- cargo tauri build --target universal-apple-darwin --bundles app,dmg
 ```
 
 The settings window opens when you click the menu-bar icon. Set `DEFIXUM_SHOW=1` to open it on launch.
@@ -74,7 +84,7 @@ The settings window opens when you click the menu-bar icon. Set `DEFIXUM_SHOW=1`
 macOS ties Accessibility and Automation permissions to the app's code signature. An ad-hoc signed build loses those permissions every time you rebuild. To keep them, sign with your own certificate:
 
 ```bash
-APPLE_SIGNING_IDENTITY="Apple Development: Your Name (TEAMID)" npm run build
+APPLE_SIGNING_IDENTITY="Apple Development: Your Name (TEAMID)" cargo tauri build --bundles app
 ```
 
 To keep test data separate from your real rules, point the app at a scratch folder with `DEFIXUM_DATA=/some/folder`. Logs go to `defixum.log` in that folder.

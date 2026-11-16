@@ -1,0 +1,7 @@
+[package]
+name = "forest"
+version = "0.1.0"
+edition = "2021"
+description = "Procedural spruce tree lines and the sky for the hour, shared by Defixum's windows and its calm page."
+
+[dependencies]

@@ -4,7 +4,17 @@
   "version": "0.1.8",
   "identifier": "com.ismayil.defixum",
   "build": {
-    "frontendDist": "../ui"
+    "frontendDist": "../ui/dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": {
+      "script": "trunk serve --port 1420",
+      "cwd": "../ui",
+      "wait": false
+    },
+    "beforeBuildCommand": {
+      "script": "trunk build --release",
+      "cwd": "../ui"
+    }
   },
   "app": {
     "withGlobalTauri": true,
