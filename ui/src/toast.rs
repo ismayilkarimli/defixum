@@ -11,6 +11,7 @@ thread_local! {
     static UNTIL: Cell<f64> = const { Cell::new(0.0) };
     static TIMER: Cell<Option<i32>> = const { Cell::new(None) };
     static KIND: RefCell<String> = const { RefCell::new(String::new()) };
+    static HOLD_RAF: Cell<Option<i32>> = const { Cell::new(None) };
 }
 
 fn tick() {
@@ -39,24 +40,37 @@ fn show(t: Toast) {
         tick();
         TIMER.set(Some(dom::interval(500, tick)));
     }
-    hold_bar(!moving && t.holding, t.hold_ms);
+    let was_holding = dom::has_class(&body, "holding");
+    let holding = !moving && t.hold_started > 0.0;
+    hold_bar(if holding { t.hold_started } else { 0.0 }, t.hold_ms);
+    // let go while it is up: no second fade-in, it just lingers and goes
+    dom::toggle_class(&body, "linger", was_holding && !holding);
     // restart the fade, so a refused press while it is up gives it the full time again
     dom::restart_class(&body, "on");
 }
 
-/// The bar that fills while ⌘Tab is held down toward getting through; empty when let go.
-fn hold_bar(holding: bool, ms: u32) {
-    let body = dom::body();
+/// The bar that fills while ⌘Tab is held down toward getting through. It is drawn from when the
+/// hold began, every frame, so it is full right as the hold gets through; let go and it drains.
+fn hold_bar(started: f64, ms: u32) {
+    dom::cancel_frame(HOLD_RAF.take());
     let fill = dom::by_id("fill");
-    dom::toggle_class(&body, "holding", holding);
-    // back to empty at once, then fill over the hold
-    dom::set_style(&fill, "transition", "none");
-    dom::set_style(&fill, "transform", "scaleX(0)");
-    let _ = fill.offset_width();
-    if holding {
-        let ms = if ms == 0 { 5000 } else { ms };
-        dom::set_style(&fill, "transition", &format!("transform {ms}ms linear"));
-        dom::set_style(&fill, "transform", "scaleX(1)");
+    dom::toggle_class(&dom::body(), "holding", started > 0.0);
+    if started > 0.0 {
+        dom::set_style(&fill, "transition", "none");
+        let total = if ms == 0 { 5000.0 } else { ms as f64 };
+        fill_frame(started, total);
+    } else {
+        // from wherever it got to, quickly back to empty
+        dom::set_style(&fill, "transition", "transform 180ms cubic-bezier(0.3, 0, 0.2, 1)");
+        dom::set_style(&fill, "transform", "scaleX(0)");
+    }
+}
+
+fn fill_frame(started: f64, total: f64) {
+    let p = ((dom::now_ms() - started) / total).clamp(0.0, 1.0);
+    dom::set_style(&dom::by_id("fill"), "transform", &format!("scaleX({p:.4})"));
+    if p < 1.0 {
+        HOLD_RAF.set(Some(dom::frame(move |_| fill_frame(started, total))));
     }
 }
 
@@ -84,7 +98,7 @@ pub fn start() {
             kind: "switch".into(),
             until: dom::now_ms() + 58000.0,
             limit: 6,
-            holding: d == "hold",
+            hold_started: if d == "hold" { dom::now_ms() } else { 0.0 },
             hold_ms: 5000,
             ..Toast::default()
         }),

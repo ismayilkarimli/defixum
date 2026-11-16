@@ -32,6 +32,14 @@ body.on.holding { animation: none; opacity: 1; }
   transition: opacity 200ms ease;
 }
 body.holding .bar { opacity: 1; }
+/* let go: the bar drains first, then fades */
+body:not(.holding) .bar { transition: opacity 200ms ease 180ms; }
+/* let go while up: already showing, so no second fade-in */
+body.on.linger { animation-name: linger; }
+@keyframes linger {
+  0%, 88% { opacity: 1; }
+  100% { opacity: 0; }
+}
 #fill {
   display: block;
   height: 100%;

@@ -367,8 +367,9 @@ struct Toast {
     /// for "move": minutes at the screen, and how long the note stays
     minutes: u32,
     seconds: u32,
-    /// for "switch": Cmd+Tab is being held down to get through, and how long that takes (ms)
-    holding: bool,
+    /// for "switch": when Cmd+Tab went down, unix milliseconds, while it is held to get through
+    /// (0 otherwise), and how long that takes in ms
+    hold_started: i64,
     hold_ms: u64,
 }
 
@@ -1491,13 +1492,16 @@ pub fn run() {
             let _ = toast.set_ignore_cursor_events(true);
             let toast_app = handle.clone();
             let lift_app = handle.clone();
-            switcher::init(move |until, limit, holding| {
+            switcher::init(move |until, limit, since| {
                 let app = toast_app.clone();
-                let ms = Local::now().timestamp_millis() + until.saturating_duration_since(Instant::now()).as_millis() as i64;
+                let now = Local::now().timestamp_millis();
+                let ms = now + until.saturating_duration_since(Instant::now()).as_millis() as i64;
                 let hold_ms = switcher::HOLD_THROUGH.as_millis() as u64;
-                let t = Toast { kind: "switch", until: ms, limit, holding, hold_ms, ..Default::default() };
+                // on the wall clock, so the bar keeps time with the hold however late it arrives
+                let hold_started = since.map_or(0, |s| now - s.elapsed().as_millis() as i64);
+                let t = Toast { kind: "switch", until: ms, limit, hold_started, hold_ms, ..Default::default() };
                 // stays up while the hold fills; let go early and it fades as usual
-                let stay = (!holding).then_some(TOAST_FOR);
+                let stay = since.is_none().then_some(TOAST_FOR);
                 let _ = toast_app.run_on_main_thread(move || toast_show(&app, t, stay));
             }, move || {
                 // held through: the note about the cooldown is out of date

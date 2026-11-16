@@ -216,7 +216,8 @@ pub struct Toast {
     pub kind: String,
     pub minutes: u32,
     pub seconds: u32,
-    pub holding: bool,
+    /// when ⌘Tab went down, unix ms, while it is held to get through; 0 otherwise
+    pub hold_started: f64,
     pub hold_ms: u32,
     /// end of the cooldown, unix milliseconds
     pub until: f64,
