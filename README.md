@@ -26,6 +26,7 @@ For the sites that pull hardest, type a sentence first. By the time you've typed
 - **Daily limits** on visits or minutes.
 - **Schedules** for work hours, weeknights, late nights.
 - **Limit ⌘Tab** when your attention keeps jumping between apps.
+- **Remind you to move** after 45 minutes at the screen. Take 1, 3, 5 or 10 minutes, or wave it off. During a video or call it's just a note.
 
 ## Sleep on time
 

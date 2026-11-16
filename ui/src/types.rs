@@ -84,6 +84,10 @@ pub struct Settings {
     pub switch_limit: bool,
     pub switches_per_minute: u32,
     pub switch_cooldown_seconds: u32,
+    pub move_reminder: bool,
+    pub move_every_minutes: u32,
+    pub move_breaks: Vec<u32>,
+    pub move_prompt_seconds: u32,
     #[serde(flatten)]
     pub rest: Map<String, Value>,
 }
@@ -101,6 +105,10 @@ impl Default for Settings {
             switch_limit: false,
             switches_per_minute: 6,
             switch_cooldown_seconds: 60,
+            move_reminder: true,
+            move_every_minutes: 45,
+            move_breaks: vec![1, 3, 5, 10],
+            move_prompt_seconds: 10,
             rest: Map::new(),
         }
     }
@@ -183,10 +191,31 @@ pub struct Bedtime {
     pub weather: Option<crate::sky::Reading>,
 }
 
-/// The ⌘Tab toast (`toast`).
+/// The reminder to get up (`move`).
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct Move {
+    /// "prompt" or "break"
+    pub phase: String,
+    /// minutes at the screen when it came up
+    pub sitting: u32,
+    pub breaks: Vec<u32>,
+    /// when this phase ends by itself, unix milliseconds
+    pub ends_at: f64,
+    /// the phase's whole length, seconds
+    pub seconds: u32,
+    pub sky: String,
+    pub weather: Option<crate::sky::Reading>,
+}
+
+/// The toast (`toast`): ⌘Tab resting, or a note to get up.
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(default)]
 pub struct Toast {
+    /// "switch" or "move"
+    pub kind: String,
+    pub minutes: u32,
+    pub seconds: u32,
     /// end of the cooldown, unix milliseconds
     pub until: f64,
     pub limit: u32,

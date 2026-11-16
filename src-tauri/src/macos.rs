@@ -26,6 +26,30 @@ extern "C" {
     fn AXIsProcessTrustedWithOptions(options: *const c_void) -> u8;
 }
 
+#[link(name = "IOKit", kind = "framework")]
+extern "C" {
+    fn IOPMCopyAssertionsStatus(out: *mut CFTypeRef) -> i32;
+}
+
+#[link(name = "CoreAudio", kind = "framework")]
+extern "C" {
+    fn AudioObjectGetPropertyData(
+        object: u32,
+        address: *const AudioAddress,
+        qualifier_size: u32,
+        qualifier: *const c_void,
+        size: *mut u32,
+        data: *mut c_void,
+    ) -> i32;
+}
+
+#[repr(C)]
+struct AudioAddress {
+    selector: u32,
+    scope: u32,
+    element: u32,
+}
+
 #[link(name = "Carbon", kind = "framework")]
 extern "C" {
     static kTISPropertyUnicodeKeyLayoutData: CFStringRef;
@@ -253,6 +277,42 @@ pub fn idle_seconds() -> f64 {
     unsafe { CGEventSourceSecondsSinceLastEventType(0, u32::MAX) }
 }
 
+/// Is something on that the user is watching or talking through: a video or presentation holding
+/// the display awake, or a microphone in use (a call)?
+pub fn screen_busy() -> bool {
+    display_held() || mic_in_use()
+}
+
+/// Some app is keeping the display from sleeping, as video players, browsers playing video,
+/// calls and presentations do.
+fn display_held() -> bool {
+    let mut raw: CFTypeRef = null();
+    if unsafe { IOPMCopyAssertionsStatus(&mut raw) } != 0 || raw.is_null() {
+        return false;
+    }
+    let dict: CFDictionary<CFString, CFNumber> = unsafe { CFDictionary::wrap_under_create_rule(raw as _) };
+    ["PreventUserIdleDisplaySleep", "NoDisplaySleepAssertion"].iter().any(|k| {
+        dict.find(CFString::new(k)).and_then(|n| n.to_i64()).unwrap_or(0) > 0
+    })
+}
+
+/// The default input device is recording for some app.
+fn mic_in_use() -> bool {
+    const SYSTEM: u32 = 1;
+    const GLOBAL: u32 = u32::from_be_bytes(*b"glob");
+    let get = |object: u32, selector: &[u8; 4]| -> Option<u32> {
+        let address = AudioAddress { selector: u32::from_be_bytes(*selector), scope: GLOBAL, element: 0 };
+        let mut value: u32 = 0;
+        let mut size = std::mem::size_of::<u32>() as u32;
+        let status = unsafe {
+            AudioObjectGetPropertyData(object, &address, 0, null(), &mut size, &mut value as *mut u32 as *mut c_void)
+        };
+        (status == 0).then_some(value)
+    };
+    let Some(device) = get(SYSTEM, b"dIn ").filter(|&d| d != 0) else { return false };
+    get(device, b"gone").is_some_and(|v| v != 0)
+}
+
 /// Sends a key press straight to one process.
 pub fn press_key(pid: i32, keycode: u16) {
     use core_graphics::event::CGEvent;
@@ -380,5 +440,15 @@ mod tests {
             _ => panic!("expected Script::Failed"),
         }
         assert!(matches!(applescript("return \"ok\""), Script::Ok(s) if s == "ok"));
+    }
+}
+
+#[cfg(test)]
+mod busy_probe {
+    /// `cargo test busy_now -- --ignored --nocapture`: what the move reminder would see now.
+    #[test]
+    #[ignore]
+    fn busy_now() {
+        println!("display held: {}, mic in use: {}", super::display_held(), super::mic_in_use());
     }
 }

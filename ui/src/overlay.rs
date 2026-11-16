@@ -1,5 +1,5 @@
-//! The pause screen and the bedtime reminder: a clearing at the edge of a forest under the sky
-//! you would see right now. The bedtime reminder is the same page in its own window.
+//! The pause screen, the bedtime reminder and the reminder to get up: a clearing at the edge of a
+//! forest under the sky you would see right now. Each reminder is the same page in its own window.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -14,11 +14,12 @@ use web_sys::{
 use crate::dom::{self, h, s, B};
 use crate::sky::{self, Reading};
 use crate::tauri;
-use crate::types::{Bedtime, Intercept, Prompt};
+use crate::types::{Bedtime, Intercept, Move, Prompt};
 
 enum Cur {
     Pause(Intercept),
     Bed(Bedtime),
+    Move(Move),
 }
 
 impl Cur {
@@ -26,6 +27,7 @@ impl Cur {
         match self {
             Cur::Pause(i) => &i.sky,
             Cur::Bed(b) => &b.sky,
+            Cur::Move(m) => &m.sky,
         }
     }
 }
@@ -53,6 +55,7 @@ struct Drop {
 #[derive(Default)]
 struct Ov {
     bedtime_mode: bool,
+    move_mode: bool,
     current: Option<Cur>,
     unlock: Unlock,
     /// What was typed into the sentence box. The window is only hidden between pauses, so when
@@ -68,6 +71,7 @@ struct Ov {
     precip_raf: Option<i32>,
     life_timers: Vec<i32>,
     bedtime_timer: Option<i32>,
+    move_timer: Option<i32>,
 }
 
 thread_local! {
@@ -1300,11 +1304,124 @@ fn bedtime_ok() {
 }
 
 fn close() {
-    if ov(|o| o.bedtime_mode) {
+    if ov(|o| o.move_mode) {
+        invoke_or_error("move_close", tauri::none())
+    } else if ov(|o| o.bedtime_mode) {
         bedtime_ok()
     } else {
         back()
     }
+}
+
+// ---------- the reminder to get up ----------
+
+const MOVE_IDEAS: [&str; 5] = [
+    "Stand up, stretch, look at something far away.",
+    "Get some water. Roll your shoulders.",
+    "A short walk counts. So does a window.",
+    "Rest your eyes. Unclench your jaw.",
+    "Stand for a minute. Your back will notice.",
+];
+
+fn clock(secs: i64) -> String {
+    format!("{}:{:02}", secs / 60, secs % 60)
+}
+
+/// The sun's ring and number: the prompt's seconds draining away, or the break filling up.
+fn tick_move() {
+    let Some(m) = ov(|o| match &o.current {
+        Some(Cur::Move(m)) => Some(m.clone()),
+        _ => None,
+    }) else {
+        return;
+    };
+    let left_ms = (m.ends_at - dom::now_ms()).max(0.0);
+    let total = (m.seconds.max(1) as f64) * 1000.0;
+    let done = (1.0 - left_ms / total).clamp(0.0, 1.0);
+    let left = (left_ms / 1000.0).ceil() as i64;
+    let breaking = m.phase == "break";
+    text("count", &if breaking { clock(left) } else { left.to_string() });
+    // the prompt drains toward 12 o'clock, the break fills round
+    let len = if breaking { done } else { 1.0 - done } * 100.0;
+    let arc = dom::by_id("arc");
+    dom::set_style(&arc, "stroke-dasharray", &format!("{} 100", forest::num(len)));
+    dom::set_style(&arc, "visibility", if len < 0.2 { "hidden" } else { "visible" });
+}
+
+fn show_move(m: Move) {
+    let fresh = !dom::has_class(&dom::body(), "in");
+    if fresh {
+        ov(|o| o.scene_seed = new_seed());
+    }
+    ov(|o| {
+        o.weather_now = m.weather.clone();
+        o.current = Some(Cur::Move(m.clone()));
+    });
+    if fresh {
+        paint();
+        start_life();
+    }
+    set_error("");
+    dom::by_id("breath").set_class_name("breath is-ring settled");
+    let breaking = m.phase == "break";
+    dom::toggle_class(&dom::body(), "on-break", breaking);
+    let later = dom::by_id("later");
+    for b in dom::qa_in(&later, "button") {
+        b.remove();
+    }
+    if breaking {
+        let minutes = m.seconds / 60;
+        text("title", &format!("See you in {}.", if minutes == 1 { "a minute".to_string() } else { format!("{minutes} minutes") }));
+        text("detail", "The screen will keep. Come back whenever you like.");
+        text("back", "I'm back");
+        later.set_hidden(true);
+        if let Some(hint) = dom::q(".hint") {
+            hint.set_text_content(Some("Press Esc when you're back"));
+        }
+    } else {
+        let idea = MOVE_IDEAS[(dom::random() * MOVE_IDEAS.len() as f64) as usize % MOVE_IDEAS.len()];
+        text("title", &format!("{} minutes at the screen.", m.sitting));
+        text("detail", idea);
+        text("back", "Not now");
+        later.set_hidden(m.breaks.is_empty());
+        for &b in &m.breaks {
+            let btn = h("button").text(&format!("{b} min")).on::<Event>("click", move |_| invoke_or_error("move_break", json!({ "minutes": b })));
+            later.append_child(&btn.el()).unwrap();
+        }
+        if let Some(hint) = dom::q(".hint") {
+            hint.set_text_content(Some("Press Enter or Esc for not now"));
+        }
+    }
+    tick_move();
+    dom::clear_interval(ov(|o| o.move_timer.take()));
+    let t = dom::interval(200, tick_move);
+    ov(|o| o.move_timer = Some(t));
+    let _ = dom::by_id("back").focus();
+    dom::frame(|_| {
+        let _ = dom::body().class_list().add_1("in");
+    });
+}
+
+fn hide_move() {
+    dom::clear_interval(ov(|o| o.move_timer.take()));
+    stop_life();
+    stop_precip();
+    ov(|o| o.current = None);
+    let _ = dom::body().class_list().remove_2("in", "on-break");
+}
+
+fn demo_move() {
+    let breaking = dom::param("phase").as_deref() == Some("break");
+    let seconds = if breaking { 5 * 60 } else { 10 };
+    show_move(Move {
+        phase: if breaking { "break" } else { "prompt" }.into(),
+        sitting: 45,
+        breaks: vec![1, 3, 5, 10],
+        ends_at: dom::now_ms() + seconds as f64 * 1000.0 - if breaking { 41000.0 } else { 0.0 },
+        seconds,
+        sky: "time".into(),
+        weather: None,
+    });
 }
 
 // ---------- boot ----------
@@ -1364,7 +1481,7 @@ fn bind() {
     });
     // Esc or Cmd+W closes the tab. The app menu has no Close Window item, so the page sees Cmd+W.
     dom::on::<KeyboardEvent>(&dom::doc(), "keydown", |e| {
-        let bedtime = ov(|o| o.bedtime_mode);
+        let bedtime = ov(|o| o.bedtime_mode || o.move_mode);
         let key = e.key();
         if key == "Escape" {
             close();
@@ -1443,16 +1560,30 @@ fn demo_bedtime() {
     });
 }
 
-pub fn start(bedtime: bool) {
+pub fn start(mode: &str) {
+    let bedtime = mode == "bedtime";
+    let moving = mode == "move";
     dom::add_style(include_str!("../styles/overlay.css"));
     ov(|o| {
         o.bedtime_mode = bedtime;
+        o.move_mode = moving;
         o.scene_seed = new_seed();
     });
     build();
     bind();
 
-    if bedtime {
+    if moving {
+        let _ = dom::body().class_list().add_1("move");
+        dom::by_id("commit").set_hidden(true);
+        dom::q_in(&dom::by_id("later"), "span").set_text_content(Some("or step away for"));
+        tauri::listen("move", show_move);
+        tauri::listen::<serde_json::Value>("move_hide", |_| hide_move());
+        tauri::spawn(async {
+            if let Ok(Some(m)) = tauri::invoke::<Option<Move>>("move_state", tauri::none()).await {
+                show_move(m);
+            }
+        });
+    } else if bedtime {
         let _ = dom::body().class_list().add_1("bedtime");
         let later = dom::by_id("later");
         later.set_hidden(true);
@@ -1492,9 +1623,11 @@ pub fn start(bedtime: bool) {
     //   &waited=1 (arrive with the countdown already served)   &hour=21.5 (light of that hour)
     //   &weather=clear|cloudy|overcast|fog|drizzle|rain|downpour|storm|snow   &wind=30 (km/h)
     //   bedtime: ?w=overlay&mode=bedtime&demo=bedtime&minutes=30&hour=21&weather=clear (&at=23:00)
+    //   get up: ?w=overlay&mode=move&demo=move (&phase=break)
     match dom::param("demo").filter(|d| !d.is_empty()) {
+        Some(d) if moving && d == "move" => demo_move(),
         Some(d) if bedtime && d == "bedtime" => demo_bedtime(),
-        Some(d) if !bedtime => demo_pause(&d),
+        Some(d) if !bedtime && !moving => demo_pause(&d),
         _ => {}
     }
 }

@@ -15,7 +15,8 @@ body {
   box-sizing: border-box;
   opacity: 0;
 }
-body.on { animation: life 5s ease both; }
+body.on { animation: life var(--life, 5s) ease both; }
+body.move { cursor: pointer; }
 @keyframes life {
   0% { opacity: 0; transform: translateY(-6px); }
   6%, 88% { opacity: 1; transform: none; }

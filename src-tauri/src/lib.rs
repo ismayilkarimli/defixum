@@ -2,6 +2,7 @@ mod bedtime;
 mod calm;
 mod browser;
 mod macos;
+mod movement;
 mod prompts;
 mod rules;
 mod switcher;
@@ -203,6 +204,10 @@ struct Core {
     /// "Close the tab" is stepping back through the tab's history; the pages it passes on the
     /// way are not paused.
     leaving: bool,
+    /// time at the screen since the last break
+    move_clock: movement::Clock,
+    /// the reminder to get up, on screen
+    move_up: Option<MoveUp>,
     data_dir: PathBuf,
 }
 
@@ -352,16 +357,22 @@ const TOAST_SIZE: (f64, f64) = (360.0, 68.0);
 const TOAST_FOR: Duration = Duration::from_secs(5);
 static TOAST_SHOWN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Default)]
 struct Toast {
+    /// "switch" (Cmd+Tab is resting) or "move" (time to get up)
+    kind: &'static str,
     /// end of the cooldown, unix milliseconds
     until: i64,
     limit: u32,
+    /// for "move": minutes at the screen, and how long the note stays
+    minutes: u32,
+    seconds: u32,
 }
 
-/// Shows the toast near the top of the screen under the pointer, without taking focus, and
-/// hides it again unless another refusal has refreshed it in the meantime. Main thread only.
-fn toast_show(app: &AppHandle, until: i64, limit: u32) {
+/// Shows the toast near the top of the screen under the pointer, without taking focus. With
+/// `stay` it hides again after that long, unless another toast has come in the meantime; a
+/// "move" note is clickable and taken down by `move_dismiss`. Main thread only.
+fn toast_show(app: &AppHandle, toast: Toast, stay: Option<Duration>) {
     let Some(w) = app.get_webview_window("toast") else { return };
     let monitor = app
         .cursor_position()
@@ -375,15 +386,17 @@ fn toast_show(app: &AppHandle, until: i64, limit: u32) {
         let y = m.position().y + (56.0 * scale) as i32;
         let _ = w.set_position(tauri::PhysicalPosition::new(x, y));
     }
-    let _ = app.emit_to("toast", "toast", Toast { until, limit });
+    let _ = w.set_ignore_cursor_events(toast.kind != "move");
+    let _ = app.emit_to("toast", "toast", toast);
     if let Ok(ptr) = w.ns_window() {
         let win: &objc2_app_kit::NSWindow = unsafe { &*(ptr as *const objc2_app_kit::NSWindow) };
         win.orderFrontRegardless();
     }
     let shown = TOAST_SHOWN.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+    let Some(stay) = stay else { return };
     let app = app.clone();
     std::thread::spawn(move || {
-        std::thread::sleep(TOAST_FOR);
+        std::thread::sleep(stay);
         if TOAST_SHOWN.load(std::sync::atomic::Ordering::SeqCst) == shown {
             let a = app.clone();
             let _ = app.run_on_main_thread(move || {
@@ -520,6 +533,7 @@ fn bedtime_tick(app: &AppHandle, core: &Shared) {
         let return_to = c.bedtime_up.as_ref().map_or(front, |u| u.return_to);
         c.bedtime_up = Some(BedtimeUp { shown: payload.clone(), night, return_to });
     }
+    move_dismiss(app, core, "bedtime reminder took over");
     log(format!("bedtime reminder: {} min {} {}", payload.offset.abs(), if payload.offset < 0 { "after" } else { "before" }, payload.bedtime));
     bedtime_show(app, &payload);
 }
@@ -561,6 +575,168 @@ async fn bedtime_later(app: AppHandle, core: State<'_, Shared>, minutes: u32) ->
 #[tauri::command]
 async fn bedtime_mute(app: AppHandle, core: State<'_, Shared>) -> Result<(), String> {
     bedtime_dismiss(&app, &core, true);
+    Ok(())
+}
+
+// ---------- move reminder ----------
+
+/// What the reminder to get up is told.
+#[derive(Clone, Serialize)]
+struct Move {
+    /// "prompt" (asking) or "break" (the user stepped away)
+    phase: &'static str,
+    /// minutes at the screen when it came up
+    sitting: u32,
+    /// the break lengths offered, in minutes
+    breaks: Vec<u32>,
+    /// when this phase ends by itself, unix milliseconds
+    ends_at: i64,
+    /// how long this phase lasts in all, seconds
+    seconds: u32,
+    sky: String,
+    weather: Option<weather::Weather>,
+}
+
+struct MoveUp {
+    shown: Move,
+    /// shown as a note at the top instead of the full screen, because a video or call is on
+    toast: bool,
+    return_to: Option<i32>,
+}
+
+fn move_show(app: &AppHandle, payload: &Move) {
+    let Some(w) = app.get_webview_window("move") else { return };
+    cover_monitor(app, &w);
+    let _ = app.emit_to("move", "move", payload);
+    show_key(&w);
+}
+
+/// Takes the reminder down, whichever form it is in, and starts the count over.
+fn move_dismiss(app: &AppHandle, core: &Shared, why: &str) {
+    let up = {
+        let mut c = core.lock().unwrap();
+        c.move_clock.reset();
+        c.move_up.take()
+    };
+    let Some(up) = up else { return };
+    log(format!("move reminder ({}): {why}", up.shown.phase));
+    if up.toast {
+        let a = app.clone();
+        let _ = app.run_on_main_thread(move || {
+            if let Some(w) = a.get_webview_window("toast") {
+                let _ = w.hide();
+                let _ = w.set_ignore_cursor_events(true);
+            }
+        });
+        return;
+    }
+    if let Some(w) = app.get_webview_window("move") {
+        let _ = app.emit_to("move", "move_hide", ());
+        let _ = w.hide();
+    }
+    if let Some(pid) = up.return_to {
+        macos::activate(pid);
+    }
+}
+
+/// Counts time at the screen and brings the reminder up when it is due. Called every second.
+fn move_tick(app: &AppHandle, core: &Shared, dt: Duration) {
+    let now_ms = Local::now().timestamp_millis();
+    let (s, up, ended, others_up, sitting) = {
+        let c = core.lock().unwrap();
+        let up = c.move_up.as_ref();
+        (
+            c.config.settings.clone(),
+            up.is_some(),
+            up.is_some_and(|u| now_ms >= u.shown.ends_at),
+            c.intercept.is_some() || c.bedtime_up.is_some(),
+            c.move_clock.sitting(),
+        )
+    };
+    if ended {
+        move_dismiss(app, core, "time up");
+        return;
+    }
+    if !s.move_reminder {
+        move_dismiss(app, core, "turned off");
+        core.lock().unwrap().move_clock.reset();
+        return;
+    }
+    // nobody is there to see it, and a screen that's off isn't being looked at
+    if up || macos::display_asleep() {
+        return;
+    }
+    let every = Duration::from_secs(s.move_every_minutes.clamp(15, 180) as u64 * 60);
+    let idle = Duration::from_secs_f64(macos::idle_seconds().max(0.0));
+    // only asked when it matters: it's a question to the audio and power systems
+    let busy = (idle >= movement::AWAY || sitting + dt >= every) && macos::screen_busy();
+    let payload = {
+        let mut c = core.lock().unwrap();
+        // wait for the pause or bedtime screen to go before coming up
+        if !c.move_clock.tick(dt, idle, busy, every) || others_up {
+            return;
+        }
+        let sitting = (c.move_clock.sitting().as_secs() / 60) as u32;
+        c.move_clock.reset();
+        let seconds = s.move_prompt_seconds.clamp(5, 60);
+        let mut breaks = movement::clean_breaks(&s.move_breaks);
+        if breaks.is_empty() {
+            breaks = rules::Settings::default().move_breaks;
+        }
+        let payload = Move {
+            phase: "prompt",
+            sitting,
+            breaks,
+            ends_at: now_ms + seconds as i64 * 1000,
+            seconds,
+            sky: s.sky.clone(),
+            weather: if s.weather { weather::current() } else { None },
+        };
+        let own_pid = std::process::id() as i32;
+        let return_to = macos::frontmost().map(|f| f.pid).filter(|&p| p != own_pid);
+        c.move_up = Some(MoveUp { shown: payload.clone(), toast: busy, return_to });
+        payload
+    };
+    log(format!("move reminder after {} min{}", payload.sitting, if busy { ", as a note (video or call on)" } else { "" }));
+    if busy {
+        let t = Toast { kind: "move", minutes: payload.sitting, seconds: payload.seconds, ..Default::default() };
+        let a = app.clone();
+        let _ = app.run_on_main_thread(move || toast_show(&a, t, None));
+    } else {
+        move_show(app, &payload);
+    }
+}
+
+#[tauri::command]
+async fn move_state(core: State<'_, Shared>) -> Result<Option<Move>, String> {
+    Ok(core.lock().unwrap().move_up.as_ref().filter(|u| !u.toast).map(|u| u.shown.clone()))
+}
+
+/// One of the break lengths: the screen stays covered that long, unless the user comes back sooner.
+#[tauri::command]
+async fn move_break(app: AppHandle, core: State<'_, Shared>, minutes: u32) -> Result<(), String> {
+    let minutes = minutes.clamp(1, 60);
+    let payload = {
+        let mut c = core.lock().unwrap();
+        let Some(up) = c.move_up.as_mut().filter(|u| !u.toast) else { return Ok(()) };
+        up.shown.phase = "break";
+        up.shown.seconds = minutes * 60;
+        up.shown.ends_at = Local::now().timestamp_millis() + minutes as i64 * 60_000;
+        up.shown.clone()
+    };
+    log(format!("move reminder: break for {minutes} min"));
+    let _ = app.emit_to("move", "move", &payload);
+    Ok(())
+}
+
+/// "Not now", "I'm back", Enter, Esc, or a click on the note.
+#[tauri::command]
+async fn move_close(app: AppHandle, core: State<'_, Shared>) -> Result<(), String> {
+    let why = match core.lock().unwrap().move_up.as_ref() {
+        Some(u) if u.shown.phase == "break" => "back early",
+        _ => "not now",
+    };
+    move_dismiss(&app, &core, why);
     Ok(())
 }
 
@@ -1029,6 +1205,12 @@ async fn save_config(app: AppHandle, core: State<'_, Shared>, mut config: Config
     }
     config.settings.switches_per_minute = config.settings.switches_per_minute.clamp(1, 60);
     config.settings.switch_cooldown_seconds = config.settings.switch_cooldown_seconds.clamp(5, 3600);
+    config.settings.move_every_minutes = config.settings.move_every_minutes.clamp(15, 180);
+    config.settings.move_prompt_seconds = config.settings.move_prompt_seconds.clamp(5, 60);
+    config.settings.move_breaks = movement::clean_breaks(&config.settings.move_breaks);
+    if config.settings.move_breaks.is_empty() {
+        config.settings.move_breaks = rules::Settings::default().move_breaks;
+    }
     let s = &config.settings;
     switcher::sync(s.switch_limit, s.switches_per_minute, s.switch_cooldown_seconds);
     let mut c = core.lock().unwrap();
@@ -1164,7 +1346,10 @@ pub fn run() {
             bedtime_state,
             bedtime_ok,
             bedtime_later,
-            bedtime_mute
+            bedtime_mute,
+            move_state,
+            move_break,
+            move_close
         ])
         .setup(|app| {
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
@@ -1191,6 +1376,8 @@ pub fn run() {
                 bedtime_log: read_json(&dir.join("bedtime.json")).unwrap_or_default(),
                 bedtime_up: None,
                 leaving: false,
+                move_clock: movement::Clock::default(),
+                move_up: None,
                 data_dir: dir.clone(),
             };
             if first_run {
@@ -1258,6 +1445,28 @@ pub fn run() {
                 }
             });
 
+            // The reminder to get up: the same forest again, under the pause and bedtime screens.
+            let move_win = WebviewWindowBuilder::new(app, "move", WebviewUrl::App("index.html?w=overlay&mode=move".into()))
+                .title("Defixum")
+                .decorations(false)
+                .transparent(true)
+                .always_on_top(true)
+                .skip_taskbar(true)
+                .resizable(false)
+                .shadow(false)
+                .visible(false)
+                .visible_on_all_workspaces(true)
+                .effects(EffectsBuilder::new().effect(Effect::HudWindow).state(EffectState::Active).build())
+                .build()?;
+            raise_window(&move_win, 100);
+            let move_app = handle.clone();
+            move_win.on_window_event(move |e| {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = e {
+                    api.prevent_close();
+                    move_dismiss(&move_app, &move_app.state::<Shared>(), "closed");
+                }
+            });
+
             // A small note under the menu bar when Cmd+Tab is refused. It never takes focus or clicks.
             let toast = WebviewWindowBuilder::new(app, "toast", WebviewUrl::App("index.html?w=toast".into()))
                 .title("Defixum")
@@ -1270,6 +1479,7 @@ pub fn run() {
                 .shadow(false)
                 .focused(false)
                 .focusable(false)
+                .accept_first_mouse(true)
                 .visible(false)
                 .visible_on_all_workspaces(true)
                 .effects(EffectsBuilder::new().effect(Effect::HudWindow).state(EffectState::Active).radius(16.0).build())
@@ -1280,7 +1490,8 @@ pub fn run() {
             switcher::init(move |until, limit| {
                 let app = toast_app.clone();
                 let ms = Local::now().timestamp_millis() + until.saturating_duration_since(Instant::now()).as_millis() as i64;
-                let _ = toast_app.run_on_main_thread(move || toast_show(&app, ms, limit));
+                let t = Toast { kind: "switch", until: ms, limit, ..Default::default() };
+                let _ = toast_app.run_on_main_thread(move || toast_show(&app, t, Some(TOAST_FOR)));
             });
 
             let main = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
@@ -1323,6 +1534,20 @@ pub fn run() {
             let weather_core = shared.clone();
             let bedtime_core = shared.clone();
             let bedtime_handle = handle.clone();
+            let (move_core, move_handle) = (shared.clone(), handle.clone());
+            std::thread::spawn(move || {
+                let mut last = Instant::now();
+                loop {
+                    std::thread::sleep(Duration::from_secs(1));
+                    // a long gap is the Mac sleeping, not screen time
+                    let dt = last.elapsed().min(Duration::from_secs(3));
+                    last = Instant::now();
+                    move_tick(&move_handle, &move_core, dt);
+                    if !macos::display_asleep() {
+                        refit(&move_handle, "move");
+                    }
+                }
+            });
             std::thread::spawn(move || monitor(handle, shared, runner));
             // bedtime reminders and screen changes: looks every couple of seconds, so a Mac waking
             // from sleep catches up quickly

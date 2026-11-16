@@ -406,6 +406,36 @@ fn build() {
                 ),
             )
             .child(
+                h("div").class("group").child(h("h3").text("Breaks")).child(
+                    h("div")
+                        .class("sheet")
+                        .child(
+                            h("label")
+                                .class("row")
+                                .child(titled("Remind me to move", "A nudge to get up after a long stretch at the screen. During a video or call it's just a note at the top"))
+                                .child(switch("move-reminder")),
+                        )
+                        .child(
+                            h("label")
+                                .class("row")
+                                .child(titled("Every", "Three minutes away from the Mac starts the count over"))
+                                .child(unit(number("move-every", 15, 180).attr("value", "45"), " min")),
+                        )
+                        .child(
+                            h("label")
+                                .class("row")
+                                .child(titled("Break choices", "Minutes offered on the reminder, separated by commas"))
+                                .child(h("input").attr("type", "text").id("move-breaks").attr("inputmode", "numeric").attr("placeholder", "1, 3, 5, 10")),
+                        )
+                        .child(
+                            h("label")
+                                .class("row")
+                                .child(titled("Reminder stays for", "Then it goes away on its own"))
+                                .child(unit(number("move-prompt", 5, 60).attr("value", "10"), " sec")),
+                        ),
+                ),
+            )
+            .child(
                 h("div").class("group").child(h("h3").text("General")).child(
                     h("div")
                         .class("sheet")
@@ -1269,6 +1299,19 @@ fn render_setup() {
         cool.set_value(&(if set.switch_cooldown_seconds == 0 { 60 } else { set.switch_cooldown_seconds }).to_string());
     }
     cool.set_disabled(!set.switch_limit);
+    dom::input("move-reminder").set_checked(set.move_reminder);
+    for (id, v) in [("move-every", set.move_every_minutes), ("move-prompt", set.move_prompt_seconds)] {
+        let el = dom::input(id);
+        if !dom::is_active(&el) {
+            el.set_value(&v.to_string());
+        }
+        el.set_disabled(!set.move_reminder);
+    }
+    let mb = dom::input("move-breaks");
+    if !dom::is_active(&mb) {
+        mb.set_value(&join_options(&set.move_breaks));
+    }
+    mb.set_disabled(!set.move_reminder);
     apply_sky();
 }
 
@@ -1407,6 +1450,46 @@ fn bind_setup() {
     }
     bind_number("switches-per-minute", 1.0, 60.0, 6.0, |s, v| s.switches_per_minute = v as u32);
     bind_number("switch-cooldown", 5.0, 3600.0, 60.0, |s, v| s.switch_cooldown_seconds = v as u32);
+    let mv = dom::input("move-reminder");
+    {
+        let m = mv.clone();
+        dom::on::<Event>(&mv, "change", move |_| {
+            let on = m.checked();
+            cfg(|c| c.settings.move_reminder = on);
+            for id in ["move-every", "move-breaks", "move-prompt"] {
+                dom::input(id).set_disabled(!on);
+            }
+            schedule_save();
+        });
+    }
+    bind_number("move-every", 15.0, 180.0, 45.0, |s, v| s.move_every_minutes = v as u32);
+    bind_number("move-prompt", 5.0, 60.0, 10.0, |s, v| s.move_prompt_seconds = v as u32);
+    let mb = dom::input("move-breaks");
+    {
+        let e = mb.clone();
+        dom::on::<Event>(&mb, "change", move |_| {
+            let mut list: Vec<u32> = e
+                .value()
+                .split(|c: char| c.is_whitespace() || c == ',')
+                .map(num)
+                .filter(|n| n.fract() == 0.0 && (1.0..=60.0).contains(n))
+                .map(|n| n as u32)
+                .collect();
+            let out = cfg(|c| {
+                if !list.is_empty() {
+                    list.sort_unstable();
+                    list.dedup();
+                    list.truncate(4);
+                    c.settings.move_breaks = list;
+                }
+                join_options(&c.settings.move_breaks)
+            });
+            if let Some(v) = out {
+                e.set_value(&v);
+            }
+            schedule_save();
+        });
+    }
     let auto = dom::input("autostart");
     {
         let a = auto.clone();

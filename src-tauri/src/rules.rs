@@ -122,6 +122,14 @@ pub struct Settings {
     pub switches_per_minute: u32,
     /// Seconds Cmd+Tab stays off once the limit is passed.
     pub switch_cooldown_seconds: u32,
+    /// A nudge to get up after a long stretch at the screen (see `movement`).
+    pub move_reminder: bool,
+    /// Minutes at the screen before the nudge.
+    pub move_every_minutes: u32,
+    /// The break lengths offered, in minutes.
+    pub move_breaks: Vec<u32>,
+    /// How long the nudge waits for a choice before going away by itself.
+    pub move_prompt_seconds: u32,
 }
 
 impl Default for Settings {
@@ -137,6 +145,10 @@ impl Default for Settings {
             switch_limit: false,
             switches_per_minute: 6,
             switch_cooldown_seconds: 60,
+            move_reminder: true,
+            move_every_minutes: 45,
+            move_breaks: vec![1, 3, 5, 10],
+            move_prompt_seconds: 10,
         }
     }
 }
