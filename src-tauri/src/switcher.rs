@@ -1,6 +1,7 @@
 //! Limits Cmd+Tab. An event tap counts app switches (one per Cmd+Tab press, however many times
 //! Tab is tapped while Cmd stays down) and, once more than the allowed number land within a
-//! minute, swallows Cmd+Tab for a cooldown so the app switcher doesn't open. Needs the same
+//! minute, swallows Cmd+Tab for a cooldown so the app switcher doesn't open. Holding Cmd+Tab
+//! down for `HOLD_THROUGH` lifts the cooldown and opens the switcher anyway. Needs the same
 //! Accessibility permission the browser reading uses.
 
 use core_foundation::base::TCFType;
@@ -17,6 +18,8 @@ use std::time::{Duration, Instant};
 
 const WINDOW: Duration = Duration::from_secs(60);
 const TAB: i64 = 48;
+/// How long Cmd+Tab has to be held down to get past the cooldown.
+pub const HOLD_THROUGH: Duration = Duration::from_secs(5);
 
 #[derive(Debug, PartialEq)]
 pub enum Verdict {
@@ -55,6 +58,23 @@ impl Limiter {
         self.recent.push_back(now);
         Verdict::Allow
     }
+
+    /// The user held on through the cooldown: it ends, and the count starts fresh.
+    pub fn lift(&mut self) {
+        self.until = None;
+        self.recent.clear();
+    }
+}
+
+/// One Cmd press.
+#[derive(Default)]
+struct Hold {
+    /// a Cmd+Tab in this press has been counted
+    counted: bool,
+    /// and refused: its Tabs are swallowed
+    blocked: bool,
+    /// when the refused Tab went down, while it is still down
+    tab_since: Option<Instant>,
 }
 
 static ENABLED: AtomicBool = AtomicBool::new(false);
@@ -65,6 +85,8 @@ static PORT: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 static LIMITER: Mutex<Option<Limiter>> = Mutex::new(None);
 /// Told when Cmd+Tab was swallowed, with the end of the cooldown and the limit.
 static ON_BLOCK: OnceLock<Box<dyn Fn(Instant, u32) + Send + Sync>> = OnceLock::new();
+/// Told when a long hold got past the cooldown.
+static ON_LIFT: OnceLock<Box<dyn Fn() + Send + Sync>> = OnceLock::new();
 
 #[link(name = "CoreGraphics", kind = "framework")]
 extern "C" {
@@ -78,9 +100,22 @@ fn set_tap(on: bool) {
     }
 }
 
-/// Called once at launch with what to do when Cmd+Tab is swallowed.
-pub fn init(on_block: impl Fn(Instant, u32) + Send + Sync + 'static) {
+/// Called once at launch with what to do when Cmd+Tab is swallowed, and when a long hold gets
+/// past the cooldown.
+pub fn init(on_block: impl Fn(Instant, u32) + Send + Sync + 'static, on_lift: impl Fn() + Send + Sync + 'static) {
     let _ = ON_BLOCK.set(Box::new(on_block));
+    let _ = ON_LIFT.set(Box::new(on_lift));
+}
+
+/// Ends the cooldown after a long hold and tells the app.
+fn lift() {
+    if let Some(l) = LIMITER.lock().unwrap().as_mut() {
+        l.lift();
+    }
+    crate::log("cmd+tab limit: held through the cooldown");
+    if let Some(tell) = ON_LIFT.get() {
+        tell();
+    }
 }
 
 /// Applies the settings. Cheap; call it whenever they change and now and then, so the tap
@@ -101,8 +136,7 @@ pub fn sync(enabled: bool, limit: u32, cooldown_secs: u32) {
 fn start() {
     STARTED.store(true, Ordering::SeqCst);
     std::thread::spawn(|| {
-        // whether this Cmd press already counted as a switch, and if that switch was refused
-        let hold: Mutex<(bool, bool)> = Mutex::new((false, false));
+        let hold: Mutex<Hold> = Mutex::new(Hold::default());
         let tap = CGEventTap::new(
             CGEventTapLocation::Session,
             CGEventTapPlacement::HeadInsertEventTap,
@@ -118,7 +152,7 @@ fn start() {
                     }
                     CGEventType::FlagsChanged => {
                         if !event.get_flags().contains(CGEventFlags::CGEventFlagCommand) {
-                            *hold = (false, false);
+                            *hold = Hold::default();
                         }
                         return CallbackResult::Keep;
                     }
@@ -131,7 +165,31 @@ fn start() {
                 {
                     return CallbackResult::Keep;
                 }
-                if matches!(kind, CGEventType::KeyDown) && !hold.0 {
+                let down = matches!(kind, CGEventType::KeyDown);
+                let repeat = event.get_integer_value_field(EventField::KEYBOARD_EVENT_AUTOREPEAT) != 0;
+                if hold.blocked {
+                    let held = hold.tab_since.is_some_and(|t| t.elapsed() >= HOLD_THROUGH);
+                    if down && !repeat {
+                        // Tab let go and pressed again under the same Cmd: a new hold
+                        hold.tab_since = Some(Instant::now());
+                    } else if down && held {
+                        // Tab is still down (the keyboard repeats it): let this press through as a
+                        // fresh one, so the switcher opens now
+                        hold.blocked = false;
+                        hold.tab_since = None;
+                        lift();
+                        event.set_integer_value_field(EventField::KEYBOARD_EVENT_AUTOREPEAT, 0);
+                        return CallbackResult::Keep;
+                    } else if !down {
+                        // key repeat turned off: no repeats arrive, so the next press goes through
+                        if held {
+                            hold.blocked = false;
+                            lift();
+                        }
+                        hold.tab_since = None;
+                    }
+                }
+                if down && !hold.counted {
                     let limit = LIMIT.load(Ordering::SeqCst);
                     let cooldown = Duration::from_secs(COOLDOWN_SECS.load(Ordering::SeqCst) as u64);
                     let verdict = LIMITER
@@ -139,12 +197,14 @@ fn start() {
                         .unwrap()
                         .get_or_insert_with(Limiter::default)
                         .attempt(Instant::now(), limit, cooldown);
-                    *hold = (true, verdict != Verdict::Allow);
+                    hold.counted = true;
+                    hold.blocked = verdict != Verdict::Allow;
+                    hold.tab_since = hold.blocked.then(Instant::now);
                     if let (Verdict::Block(until), Some(tell)) = (verdict, ON_BLOCK.get()) {
                         tell(until, limit);
                     }
                 }
-                if hold.1 {
+                if hold.blocked {
                     CallbackResult::Drop
                 } else {
                     CallbackResult::Keep
@@ -188,6 +248,21 @@ mod tests {
         assert_eq!(l.attempt(seventh + COOLDOWN - Duration::from_secs(1), 6, COOLDOWN), Verdict::Block(seventh + COOLDOWN));
         for i in 0..6 {
             assert_eq!(l.attempt(seventh + COOLDOWN + Duration::from_secs(i), 6, COOLDOWN), Verdict::Allow);
+        }
+    }
+
+    #[test]
+    fn holding_through_lifts_the_cooldown() {
+        let mut l = Limiter::default();
+        let t = Instant::now();
+        for i in 0..3 {
+            l.attempt(t + Duration::from_secs(i), 3, COOLDOWN);
+        }
+        assert!(matches!(l.attempt(t + Duration::from_secs(4), 3, COOLDOWN), Verdict::Block(_)));
+        l.lift();
+        // a fresh minute: the whole allowance again
+        for i in 0..3 {
+            assert_eq!(l.attempt(t + Duration::from_secs(10 + i), 3, COOLDOWN), Verdict::Allow);
         }
     }
 

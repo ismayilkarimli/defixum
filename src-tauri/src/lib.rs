@@ -1487,11 +1487,21 @@ pub fn run() {
             raise_window(&toast, 103);
             let _ = toast.set_ignore_cursor_events(true);
             let toast_app = handle.clone();
+            let lift_app = handle.clone();
             switcher::init(move |until, limit| {
                 let app = toast_app.clone();
                 let ms = Local::now().timestamp_millis() + until.saturating_duration_since(Instant::now()).as_millis() as i64;
                 let t = Toast { kind: "switch", until: ms, limit, ..Default::default() };
                 let _ = toast_app.run_on_main_thread(move || toast_show(&app, t, Some(TOAST_FOR)));
+            }, move || {
+                // held through: the note about the cooldown is out of date
+                let app = lift_app.clone();
+                let _ = lift_app.run_on_main_thread(move || {
+                    TOAST_SHOWN.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    if let Some(w) = app.get_webview_window("toast") {
+                        let _ = w.hide();
+                    }
+                });
             });
 
             let main = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))

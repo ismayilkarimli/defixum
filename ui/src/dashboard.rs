@@ -388,7 +388,7 @@ fn build() {
                         .child(
                             h("label")
                                 .class("row")
-                                .child(titled("Limit ⌘Tab", "Too many app switches in a minute and ⌘Tab stops working for a while"))
+                                .child(titled("Limit ⌘Tab", "Too many app switches in a minute and ⌘Tab rests for a while. Hold it for 5 seconds to get through"))
                                 .child(switch("switch-limit")),
                         )
                         .child(

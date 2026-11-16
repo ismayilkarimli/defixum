@@ -34,8 +34,7 @@ fn show(t: Toast) {
         dom::clear(&head);
         head.append_with_str_1("⌘Tab is resting for ").unwrap();
         head.append_child(&h("span").id("left").el()).unwrap();
-        let plural = if t.limit == 1 { "" } else { "es" };
-        dom::set_text(&dom::by_id("why"), &format!("More than {} switch{plural} in a minute. Stay here a while.", t.limit));
+        dom::set_text(&dom::by_id("why"), "Hold ⌘Tab for 5 seconds to switch anyway.");
         dom::set_var(&body, "--life", "5s");
         tick();
         TIMER.set(Some(dom::interval(500, tick)));
