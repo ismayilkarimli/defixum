@@ -1,7 +1,9 @@
-/* Sits on a dark native blur (HudWindow), so the ink is always light. */
+/* The native blur turns pale over bright pages, so the note carries its own dark ground and the
+   light ink reads over anything behind it. */
 :root {
   --ink: #eef3ea;
-  --muted: rgba(226, 236, 222, 0.7);
+  --muted: rgba(226, 236, 222, 0.84);
+  --ground: rgba(15, 28, 21, 0.9);
   --moss: #a9c9a0;
   --display: Optima, "Optima Nova", Candara, "Segoe UI", sans-serif;
 }
@@ -13,6 +15,9 @@ body {
   align-items: center;
   padding: 0 22px;
   box-sizing: border-box;
+  background: var(--ground);
+  border-radius: 16px;
+  box-shadow: inset 0 0 0 1px rgba(226, 236, 222, 0.08);
   opacity: 0;
 }
 body.on { animation: life var(--life, 5s) ease both; }
@@ -26,7 +31,7 @@ body.on.holding { animation: none; opacity: 1; }
   bottom: 9px;
   height: 3px;
   border-radius: 2px;
-  background: rgba(226, 236, 222, 0.16);
+  background: rgba(226, 236, 222, 0.2);
   overflow: hidden;
   opacity: 0;
   transition: opacity 200ms ease;
