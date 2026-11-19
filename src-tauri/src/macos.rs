@@ -315,11 +315,26 @@ fn mic_in_use() -> bool {
 
 /// Sends a key press straight to one process.
 pub fn press_key(pid: i32, keycode: u16) {
-    use core_graphics::event::CGEvent;
+    press_key_with(pid, keycode, false, false);
+}
+
+/// Sends a key press with Control and/or Shift held straight to one process.
+pub fn press_key_with(pid: i32, keycode: u16, control: bool, shift: bool) {
+    use core_graphics::event::{CGEvent, CGEventFlags};
     use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
     let Ok(source) = CGEventSource::new(CGEventSourceStateID::HIDSystemState) else { return };
+    let mut flags = CGEventFlags::CGEventFlagNull;
+    if control {
+        flags |= CGEventFlags::CGEventFlagControl;
+    }
+    if shift {
+        flags |= CGEventFlags::CGEventFlagShift;
+    }
     for down in [true, false] {
         if let Ok(ev) = CGEvent::new_keyboard_event(source.clone(), keycode, down) {
+            if control || shift {
+                ev.set_flags(flags);
+            }
             ev.post_to_pid(pid);
         }
     }

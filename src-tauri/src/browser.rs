@@ -96,6 +96,21 @@ fn script_close(t: &Target) -> String {
     )
 }
 
+/// Moves the window off its active tab without touching it: to the tab on its left (or right,
+/// for the first tab). A window with one tab gets a fresh empty tab to land on.
+fn script_step_aside(t: &Target) -> String {
+    let (index, select) = if t.kind == Kind::Safari {
+        ("index of current tab of win", "set current tab of win to tab j of win")
+    } else {
+        ("active tab index of win", "set active tab index of win to j")
+    };
+    let focus = if t.kind == Kind::Safari { " set current tab of win to newTab\n" } else { "" };
+    format!(
+        "with timeout of 2 seconds\n tell application id \"{}\"\n if (count of windows) is 0 then error \"no window\"\n set win to front window\n if (count of tabs of win) > 1 then\n set i to {index}\n if i > 1 then\n set j to i - 1\n else\n set j to 2\n end if\n {select}\n else\n set newTab to make new tab at end of tabs of win\n{focus} end if\n end tell\nend timeout",
+        t.bundle
+    )
+}
+
 pub fn script_probe(bundle: &str, kind: Kind) -> String {
     script_get(&Target { bundle: bundle.into(), pid: 0, kind })
 }
@@ -326,4 +341,52 @@ pub fn close_tab(t: &Target, main: &MainRunner) -> bool {
             item.is_some_and(|i| i.press() == 0)
         }
     }
+}
+
+/// Leaves the active tab open and untouched, but moves the window to another tab, so the page
+/// is still there to come back to. Safari and Chromium are asked by AppleScript. Elsewhere (or
+/// when the script fails, as in Arc) it presses Control-Shift-Tab, and if the address hasn't
+/// moved a moment later (a window with one tab), it opens a new tab from the app's own menu.
+/// `read` reads the active tab's address. The browser should be frontmost.
+pub fn step_aside(t: &Target, main: &MainRunner, read: &mut dyn FnMut() -> Option<String>) -> bool {
+    if t.kind != Kind::Ax {
+        let src = script_step_aside(t);
+        if matches!(main(Box::new(move || macos::applescript(&src))), Some(Script::Ok(_))) {
+            return true;
+        }
+    }
+    let before = read();
+    macos::press_key_with(t.pid, 48, true, true); // Control-Shift-Tab
+    let deadline = Instant::now() + Duration::from_millis(1500);
+    while Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(120));
+        if read() != before {
+            return true;
+        }
+    }
+    new_tab(t, main)
+}
+
+/// Presses the app's own "New Tab" menu item (Cmd+T, as typed on the current layout).
+fn new_tab(t: &Target, main: &MainRunner) -> bool {
+    if !macos::ax_trusted() {
+        return false;
+    }
+    let Some(app) = Element::application(t.pid) else { return false };
+    let Some(bar) = app.element("AXMenuBar") else { return false };
+    let layout_t = match main(Box::new(|| Script::Ok(macos::key_char(17).unwrap_or_default()))) {
+        Some(Script::Ok(c)) => c,
+        _ => String::new(),
+    };
+    let item = bar.find(
+        600,
+        &|e, role| {
+            role == "AXMenuItem"
+                && e.string("AXMenuItemCmdChar").is_some_and(|c| macos::same_key(&c, "t") || macos::same_key(&c, &layout_t))
+                && e.int("AXMenuItemCmdModifiers") == Some(0)
+                && e.flag("AXEnabled") == Some(true)
+        },
+        &|role| matches!(role, "AXMenuBar" | "AXMenuBarItem" | "AXMenu" | "AXMenuItem"),
+    );
+    item.is_some_and(|i| i.press() == 0)
 }

@@ -1058,6 +1058,46 @@ async fn overlay_back(app: AppHandle, core: State<'_, Shared>, runner: State<'_,
     Ok(())
 }
 
+/// "Keep for later": the overlay goes, the page stays open in its tab and stays held. The
+/// window moves to another tab, and going back to the page pauses it again.
+#[tauri::command]
+async fn overlay_keep(app: AppHandle, core: State<'_, Shared>, runner: State<'_, Runner>) -> Result<(), String> {
+    let target = {
+        let mut c = core.lock().unwrap();
+        let i = c.intercept.take().ok_or("no pause in progress")?;
+        if i.reason.can_continue() {
+            c.stats.count(&rules::date_key(&Local::now()), &i.key, |d| d.skips += 1);
+            c.save_stats();
+        }
+        c.expired.remove(&i.key);
+        c.waited.remove(&i.key);
+        c.cooldown.insert(i.key.clone(), Instant::now() + Duration::from_secs(3));
+        log(format!("kept {} for later", i.site));
+        i.target
+    };
+    overlay_hide(&app);
+    macos::activate(target.pid);
+    let runner = runner.0.clone();
+    let shared = core.inner().clone();
+    shared.lock().unwrap().leaving = true;
+    let moved = tauri::async_runtime::spawn_blocking(move || {
+        std::thread::sleep(Duration::from_millis(250));
+        let mut ax = AxState::default();
+        let mut read = || match browser::fetch(&target, &mut ax, runner.as_ref()) {
+            Fetch::Url(u) => Some(u),
+            _ => None,
+        };
+        browser::step_aside(&target, runner.as_ref(), &mut read)
+    })
+    .await
+    .unwrap_or(false);
+    core.lock().unwrap().leaving = false;
+    if !moved {
+        log("could not move off the kept tab");
+    }
+    Ok(())
+}
+
 enum Left {
     /// went back this many pages
     Back(u32),
@@ -1341,6 +1381,7 @@ pub fn run() {
             weather_now,
             overlay_continue,
             overlay_back,
+            overlay_keep,
             close_main,
             get_state,
             save_config,

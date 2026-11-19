@@ -165,6 +165,7 @@ fn build() {
             h("div")
                 .class("actions")
                 .child(h("button").class("primary").id("back").text("Close the tab"))
+                .child(h("div").class("later keep").id("keep-row").flag("hidden", true).child(h("button").id("keep").text("Keep it for later")))
                 .child(h("div").class("later").id("later").child(h("span").text("or open it for")))
                 .child(h("div").class("later").id("mute-row").flag("hidden", true).child(h("button").id("mute").text("Don't remind again today"))),
         )
@@ -1603,6 +1604,8 @@ pub fn start(mode: &str) {
             }
         });
     } else {
+        dom::by_id("keep-row").set_hidden(false);
+        dom::on::<Event>(&dom::by_id("keep"), "click", |_| invoke_or_error("overlay_keep", tauri::none()));
         tauri::listen("intercept", show);
         tauri::listen::<serde_json::Value>("dismiss", |_| {
             stop_countdown();

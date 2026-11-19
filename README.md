@@ -12,7 +12,7 @@ No extension. Works with Zen, Firefox, Safari, Chrome, Arc, Brave and Edge.
 
 ## Pause, then choose
 
-A few slow breaths and one honest question. Then close the tab, or go in for 2, 5 or 15 minutes, on purpose.
+A few slow breaths and one honest question. Then close the tab, keep it for later, or go in for 2, 5 or 15 minutes, on purpose.
 
 Closing takes you back past every page you'd rather not be on.
 
