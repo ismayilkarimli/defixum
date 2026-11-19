@@ -1,6 +1,10 @@
 //! Procedural conifer tree lines and the sky for the hour, shared by the pause screen, the
 //! settings window and the page left behind when a tab can't be closed.
 
+pub mod shape;
+pub mod trees;
+pub mod marks;
+
 /// Small seeded generator (mulberry32), so a forest stays the same for a whole day.
 #[derive(Clone)]
 pub struct Rng(u32);
@@ -84,6 +88,11 @@ pub struct Treeline {
     pub hills: f64,
     pub scrub: f64,
     pub spacing: (f64, f64),
+    /// which trees grow here and how often (empty: spruce only, as everywhere by default)
+    pub kinds: &'static [(Tree, f64)],
+    /// (centre, half width) of open ground where no tree stands, so a landmark behind or on
+    /// this line stays in view; a half width of 0 is no gap
+    pub gaps: [(f64, f64); 3],
 }
 
 impl Default for Treeline {
@@ -101,21 +110,73 @@ impl Default for Treeline {
             hills: 0.0,
             scrub: 0.0,
             spacing: (0.32, 0.72),
+            kinds: &[],
+            gaps: [(0.0, 0.0); 3],
         }
     }
+}
+
+/// The rolling ground of a tree line: two slow waves, so far ridges read as hills rather than
+/// a ruler line. Takes the first draws of the line's generator.
+fn ground_of(o: &Treeline, r: &mut Rng) -> impl Fn(f64) -> f64 {
+    let width = o.width;
+    let f1 = (2.0 + r.next() * 2.0) / width;
+    let f2 = (5.0 + r.next() * 4.0) / width;
+    let p1 = r.next() * 7.0;
+    let p2 = r.next() * 7.0;
+    let (base, hills) = (o.base, o.hills);
+    let pi = std::f64::consts::PI;
+    move |x: f64| base - hills * (0.6 * (x * f1 * pi + p1).sin() + 0.4 * (x * f2 * pi + p2).sin())
+}
+
+/// Where a tree line's ground is at `x`, for standing things on it.
+pub fn ground_at(o: &Treeline, x: f64) -> f64 {
+    ground_of(o, &mut Rng::new(o.seed))(x)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Tree {
+    Spruce,
+    Pine,
+    Birch,
+    Oak,
+    Juniper,
+}
+
+impl Tree {
+    /// (width scale, height scale, widest crown for its height) against a spruce in the same spot
+    fn form(self) -> (f64, f64, f64) {
+        match self {
+            Tree::Spruce => (1.0, 1.0, f64::INFINITY),
+            Tree::Pine => (1.3, 1.1, 0.5),
+            Tree::Birch => (0.95, 0.95, 0.45),
+            Tree::Oak => (1.7, 0.78, 1.0),
+            Tree::Juniper => (0.55, 0.42, 0.42),
+        }
+    }
+}
+
+/// Spruce when no mix is given, without touching the generator, so default forests stay as they were.
+fn pick_tree(kinds: &[(Tree, f64)], r: &mut Rng) -> Tree {
+    if kinds.is_empty() {
+        return Tree::Spruce;
+    }
+    let total: f64 = kinds.iter().map(|k| k.1).sum();
+    let mut v = r.next() * total;
+    for &(k, wt) in kinds {
+        if v < wt {
+            return k;
+        }
+        v -= wt;
+    }
+    kinds[kinds.len() - 1].0
 }
 
 /// The SVG path of a tree line.
 pub fn treeline(o: &Treeline) -> String {
     let mut r = Rng::new(o.seed);
     let width = o.width;
-    // the ground rolls: two slow waves, so far ridges read as hills rather than a ruler line
-    let f1 = (2.0 + r.next() * 2.0) / width;
-    let f2 = (5.0 + r.next() * 4.0) / width;
-    let p1 = r.next() * 7.0;
-    let p2 = r.next() * 7.0;
-    let pi = std::f64::consts::PI;
-    let ground = |x: f64| o.base - o.hills * (0.6 * (x * f1 * pi + p1).sin() + 0.4 * (x * f2 * pi + p2).sin());
+    let ground = ground_of(o, &mut r);
     let mut d = format!("M0 {}", num(o.height));
     if o.scrub > 0.0 {
         // undergrowth: low rounded tufts along the ground
@@ -146,15 +207,33 @@ pub fn treeline(o: &Treeline) -> String {
     while x < width + o.max_w {
         let w = o.min_w + (o.max_w - o.min_w) * r.next();
         let mut h = o.min_h + (o.max_h - o.min_h) * r.next().powf(1.6);
+        let mut shrink = 1.0;
         if let Some(c) = o.clearing {
             let dist = ((x - c.center).abs() / c.half).min(1.0);
-            h *= c.floor + (1.0 - c.floor) * smooth(dist);
+            shrink = c.floor + (1.0 - c.floor) * smooth(dist);
+            h *= shrink;
         }
+        for &(c, half) in &o.gaps {
+            if half > 0.0 {
+                h *= smooth(((x - c).abs() / half).min(1.0));
+            }
+        }
+        let kind = pick_tree(o.kinds, &mut r);
+        // a short broadleaf or pine is a young tree, narrow too, never a full crown pressed flat
+        let (wf, hf, aspect) = kind.form();
+        let (tw, th) = if kind == Tree::Spruce { (w, h) } else { ((w * wf * shrink.max(0.35)).min(h * hf * aspect), h * hf) };
+        let room = if kind == Tree::Spruce { w } else { (tw * 0.8).max(w * 0.4) };
         if h > 1.0 {
             let b = ground(x) + r.next() * o.min_h * 0.15;
-            d.push_str(&spruce(x, b, w, h, &mut r));
+            d.push_str(&match kind {
+                Tree::Spruce => spruce(x, b, w, h, &mut r),
+                Tree::Pine => trees::pine(x, b, tw, th, &mut r),
+                Tree::Birch => trees::birch(x, b, tw, th, &mut r),
+                Tree::Oak => trees::oak(x, b, tw, th, &mut r),
+                Tree::Juniper => trees::juniper(x, b, tw, th, &mut r),
+            });
         }
-        x += w * (o.spacing.0 + r.next() * (o.spacing.1 - o.spacing.0));
+        x += room * (o.spacing.0 + r.next() * (o.spacing.1 - o.spacing.0));
     }
     d
 }

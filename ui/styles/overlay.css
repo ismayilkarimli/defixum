@@ -505,3 +505,32 @@ body.bedtime .floor { padding-bottom: 3.4rem; }
 body.waiting .keep { opacity: 1; pointer-events: auto; }
 .keep button { background: transparent; color: var(--floor-muted); }
 .keep button:hover { background: var(--chip); color: var(--floor-ink); }
+/* a lake or the sea: the sky lies on it, darkening toward the near shore, with a few glints */
+.water {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--horizon) 62%, var(--sky-top)),
+    color-mix(in srgb, var(--horizon) 52%, var(--l2))
+  );
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--horizon) 55%, #ffffff);
+  overflow: hidden;
+}
+.water i {
+  position: absolute;
+  height: 1px;
+  background: color-mix(in srgb, var(--horizon) 50%, #ffffff);
+  opacity: 0.7;
+  border-radius: 1px;
+}
+/* cornflowers: blue in daylight, fading toward the grass colour as the light goes */
+
+.flowers .stems { fill: none; stroke: var(--l4); stroke-width: 1.2; }
+.flowers .heads {
+  fill: none;
+  stroke: color-mix(in srgb, #4f7ee0 calc(70% - var(--stars) * 45%), var(--l4));
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
