@@ -1,7 +1,6 @@
 //! Defixum's windows, in Rust compiled to WebAssembly. One page, routed by `?w=`: the settings
 //! window (no `w`), the pause, bedtime and get-up screens (`overlay`, by `mode`) and the toast.
 
-mod country;
 mod dashboard;
 mod dom;
 mod overlay;

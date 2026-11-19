@@ -1,9 +1,6 @@
 //! The weather outside, for the pause screen's sky. Location is approximate: the city an IP
 //! lookup places this Mac in (ipwho.is, then geojs.io), or failing that the time zone's main
 //! city from the system zone table. Weather comes from Open-Meteo. None of them need a key.
-//! The same IP lookup names the country (for the scenery), trusted only when its time zone
-//! keeps this Mac's clock; otherwise (a VPN) or offline, the country comes from the time zone,
-//! and last from the Region setting. No permission is asked for any of it.
 //! Requests go through the system `curl`, so there is no HTTP stack to bundle; offline, the
 //! last reading simply ages out and the sky goes back to fair weather.
 
@@ -37,9 +34,6 @@ struct Place {
 }
 
 static PLACE: Mutex<Option<Place>> = Mutex::new(None);
-/// the country the last IP lookup placed this Mac in, when its time zone agreed with the clock
-static COUNTRY: Mutex<Option<(String, SystemTime)>> = Mutex::new(None);
-static LAST_LOCATE: Mutex<Option<SystemTime>> = Mutex::new(None);
 static NOW: Mutex<Option<Weather>> = Mutex::new(None);
 static LAST_TRY: Mutex<Option<SystemTime>> = Mutex::new(None);
 
@@ -101,22 +95,12 @@ fn place() -> Option<(f64, f64)> {
     if let Some(p) = PLACE.lock().unwrap().as_ref().filter(|p| age(p.at) < PLACE_FRESH) {
         return Some((p.lat, p.lon));
     }
-    let offset = chrono::Local::now().offset().local_minus_utc() as i64;
-    let zone = local_zone();
-    let looked_up = get("https://ipwho.is/?fields=success,latitude,longitude,country_code,timezone")
+    let looked_up = get("https://ipwho.is/?fields=success,latitude,longitude")
         .filter(|v| v["success"].as_bool() == Some(true))
-        .and_then(|v| {
-            let agrees = v["timezone"]["offset"].as_i64() == Some(offset);
-            Some((num(&v["latitude"])?, num(&v["longitude"])?, country_code(&v).filter(|_| agrees)))
-        })
+        .and_then(|v| Some((num(&v["latitude"])?, num(&v["longitude"])?)))
         .or_else(|| {
             let v = get("https://get.geojs.io/v1/ip/geo.json")?;
-            let agrees = zone.is_some() && v["timezone"].as_str() == zone.as_deref();
-            Some((num(&v["latitude"])?, num(&v["longitude"])?, country_code(&v).filter(|_| agrees)))
-        })
-        .map(|(lat, lon, country)| {
-            *COUNTRY.lock().unwrap() = country.map(|c| (c, SystemTime::now()));
-            (lat, lon)
+            Some((num(&v["latitude"])?, num(&v["longitude"])?))
         });
     let found = looked_up.or_else(zone_place)?;
     // a city is plenty: round to about a kilometre before it goes anywhere else
@@ -128,61 +112,14 @@ fn place() -> Option<(f64, f64)> {
     Some((lat, lon))
 }
 
-fn country_code(v: &Value) -> Option<String> {
-    let c = v["country_code"].as_str()?.trim().to_uppercase();
-    (c.len() == 2 && c.chars().all(|ch| ch.is_ascii_uppercase())).then_some(c)
-}
-
-/// This Mac's time zone, as "Europe/Tallinn".
-fn local_zone() -> Option<String> {
-    let link = std::fs::read_link("/etc/localtime").ok()?;
-    let link = link.to_string_lossy();
-    Some(link[link.find("zoneinfo/")? + "zoneinfo/".len()..].to_string())
-}
-
-/// The time zone's row in the system zone table: country code, coordinates, zone.
-fn zone_row() -> Option<Vec<String>> {
-    let zone = local_zone()?;
-    let table = std::fs::read_to_string("/usr/share/zoneinfo/zone.tab").ok()?;
-    let line = table.lines().find(|l| !l.starts_with('#') && l.split('\t').nth(2) == Some(zone.as_str()))?;
-    Some(line.split('\t').map(str::to_string).collect())
-}
-
 /// The main city of this Mac's time zone, from the system zone table (no network).
 fn zone_place() -> Option<(f64, f64)> {
-    parse_iso6709(zone_row()?.get(1)?)
-}
-
-/// Looks this Mac up again when the last lookup is old. Runs whatever the weather setting, for
-/// the country; offline it waits a few minutes between tries.
-pub fn locate_if_due() {
-    if PLACE.lock().unwrap().as_ref().is_some_and(|p| age(p.at) < PLACE_FRESH) {
-        return;
-    }
-    if LAST_LOCATE.lock().unwrap().is_some_and(|t| age(t) < RETRY) {
-        return;
-    }
-    *LAST_LOCATE.lock().unwrap() = Some(SystemTime::now());
-    let _ = place();
-}
-
-/// The country this Mac is in, as an ISO code ("EE"): the IP lookup when its time zone agrees
-/// with the clock, else the time zone's country, else the Region setting.
-pub fn country() -> Option<String> {
-    if let Some((c, at)) = COUNTRY.lock().unwrap().clone() {
-        if age(at) < PLACE_FRESH {
-            return Some(c);
-        }
-    }
-    zone_row().and_then(|r| r.first().cloned()).filter(|c| c.len() == 2).or_else(region)
-}
-
-/// The Region setting's country ("en_EE" → "EE").
-fn region() -> Option<String> {
-    let out = Command::new("/usr/bin/defaults").args(["read", "-g", "AppleLocale"]).output().ok()?;
-    let locale = String::from_utf8_lossy(&out.stdout);
-    let c = locale.trim().split(['_', '@']).nth(1)?.to_uppercase();
-    (c.len() == 2 && c.chars().all(|ch| ch.is_ascii_uppercase())).then_some(c)
+    let link = std::fs::read_link("/etc/localtime").ok()?;
+    let link = link.to_string_lossy();
+    let zone = &link[link.find("zoneinfo/")? + "zoneinfo/".len()..];
+    let table = std::fs::read_to_string("/usr/share/zoneinfo/zone.tab").ok()?;
+    let line = table.lines().find(|l| !l.starts_with('#') && l.split('\t').nth(2) == Some(zone))?;
+    parse_iso6709(line.split('\t').nth(1)?)
 }
 
 /// "+5925+02445" or "-332552-0703646": ±DDMM[SS] latitude then ±DDDMM[SS] longitude.
@@ -227,15 +164,5 @@ mod tests {
         assert!((lat - 59.4167).abs() < 0.001 && (lon - 24.75).abs() < 0.001);
         let (lat, lon) = parse_iso6709("-332552-0703646").unwrap();
         assert!((lat + 33.4311).abs() < 0.001 && (lon + 70.6128).abs() < 0.001);
-    }
-}
-
-#[cfg(test)]
-mod country_tests {
-    /// Prints what the time zone and Region setting say here; run with --ignored --nocapture.
-    #[test]
-    #[ignore]
-    fn country_here() {
-        println!("zone {:?}, country {:?}, region {:?}", super::local_zone(), super::country(), super::region());
     }
 }

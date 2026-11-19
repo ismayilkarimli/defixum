@@ -977,12 +977,6 @@ async fn weather_now(core: State<'_, Shared>) -> Result<Option<weather::Weather>
     Ok(if on { weather::current() } else { None })
 }
 
-/// The country for the scenery ("EE"), or nothing when it can't be told.
-#[tauri::command]
-async fn country_now() -> Result<Option<String>, String> {
-    Ok(weather::country())
-}
-
 #[tauri::command]
 async fn overlay_continue(
     app: AppHandle,
@@ -1385,7 +1379,6 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             overlay_state,
             weather_now,
-            country_now,
             overlay_continue,
             overlay_back,
             overlay_keep,
@@ -1633,7 +1626,6 @@ pub fn run() {
             // keeps a recent weather reading while the setting is on; checks twice a minute so
             // turning it on, or waking from sleep, catches up quickly
             std::thread::spawn(move || loop {
-                weather::locate_if_due();
                 if weather_core.lock().unwrap().config.settings.weather {
                     weather::refresh_if_due();
                 }

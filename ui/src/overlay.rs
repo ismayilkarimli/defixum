@@ -11,7 +11,6 @@ use web_sys::{
     KeyboardEvent,
 };
 
-use crate::country::{self, Bird};
 use crate::dom::{self, h, s, B};
 use crate::sky::{self, Reading};
 use crate::tauri;
@@ -66,8 +65,6 @@ struct Ov {
     raf: Option<i32>,
     scene_seed: u32,
     built_for: String,
-    /// the country whose trees and landmarks fill the scene ("EE"), when known
-    country: Option<String>,
     weather_for: String,
     weather_now: Option<Reading>,
     drops: Vec<Drop>,
@@ -86,10 +83,6 @@ fn ov<R>(f: impl FnOnce(&mut Ov) -> R) -> R {
 }
 
 fn new_seed() -> u32 {
-    // test hook: &seed=N draws the same scene every time
-    if let Some(n) = dom::param("seed").and_then(|v| v.parse().ok()) {
-        return n;
-    }
     (dom::random() * 2f64.powi(31)).floor() as u32
 }
 
@@ -592,73 +585,16 @@ fn px(v: f64) -> String {
     format!("{}px", forest::num(v))
 }
 
-/// Open ground on tree line `i` in front of each landmark on it or behind it, so trees never hide
-/// one. The giants in front are left alone.
-fn gaps(plan: Option<&country::Scene>, i: usize, w: f64, hgt: f64) -> [(f64, f64); 3] {
-    let mut out = [(0.0, 0.0); 3];
-    if i >= 4 {
-        return out;
-    }
-    let Some(p) = plan else { return out };
-    for (slot, m) in out.iter_mut().zip(p.marks.iter().filter(|m| m.layer <= i)) {
-        *slot = (m.at * w, m.mark.width() * m.size * hgt * 0.75);
-    }
-    out
-}
-
-/// Cornflowers, Estonia's flower, in the grass at the foot of the near trees: a few loose
-/// clumps on either side of the clearing, blue heads on thin stems.
-fn flowers(w: f64, hgt: f64, base: f64, seed: u32) -> web_sys::Element {
-    let mut r = forest::Rng::new(seed ^ 0xc0_ff);
-    let mut stems = String::new();
-    let mut heads = String::new();
-    for _ in 0..(3 + (r.next() * 3.0) as usize) {
-        let left = r.next() < 0.5;
-        let cx = if left { 0.03 + r.next() * 0.22 } else { 0.75 + r.next() * 0.22 } * w;
-        for _ in 0..(5 + (r.next() * 8.0) as usize) {
-            let x = cx + (r.next() - 0.5) * hgt * 0.07;
-            let y0 = base + hgt * (0.004 + r.next() * 0.02);
-            let tall = hgt * (0.018 + r.next() * 0.026);
-            let lean = (r.next() - 0.5) * tall * 0.3;
-            let (hx, hy) = (x + lean, y0 - tall);
-            stems.push_str(&format!("M{:.1} {:.1}Q{:.1} {:.1} {:.1} {:.1}", x, y0, x, y0 - tall * 0.6, hx, hy));
-            // a ragged star of petals around a dark eye
-            let rad = hgt * (0.0035 + r.next() * 0.0025);
-            let n = 7;
-            for k in 0..n {
-                let a = std::f64::consts::TAU * k as f64 / n as f64 + r.next() * 0.3;
-                heads.push_str(&format!(
-                    "M{:.1} {:.1}L{:.1} {:.1}",
-                    hx,
-                    hy,
-                    hx + a.cos() * rad,
-                    hy + a.sin() * rad * 0.8
-                ));
-            }
-        }
-    }
-    s("svg")
-        .class("layer flowers")
-        .attr("viewBox", &format!("0 0 {w} {hgt}"))
-        .attr("preserveAspectRatio", "none")
-        .var("--i", "3")
-        .var("--depth", "2")
-        .child(s("path").class("stems").attr("d", &stems))
-        .child(s("path").class("heads").attr("d", &heads))
-        .el()
-}
-
 fn build_scene() {
     let (w, hgt) = screen();
     let seed = ov(|o| o.scene_seed);
-    let country = ov(|o| o.country.clone());
-    let key = format!("{w}x{hgt}:{seed}:{}", country.as_deref().unwrap_or(""));
+    let key = format!("{w}x{hgt}:{seed}");
     if ov(|o| o.built_for == key) {
         return;
     }
     ov(|o| o.built_for = key);
     let scene = dom::by_id("scene");
-    for n in dom::qa_in(&scene, ".layer, .mists, .glimmers, .water, .flowers") {
+    for n in dom::qa_in(&scene, ".layer, .mists, .glimmers") {
         n.remove();
     }
     let mut r = forest::Rng::new(seed);
@@ -672,40 +608,25 @@ fn build_scene() {
         .and_then(|b| b.trim_end_matches("px").parse::<f64>().ok())
         .unwrap_or(0.0);
     let floor_top = hgt - main_bottom;
-    let plan = country::plan(country.as_deref(), seed);
-    let sea = plan.as_ref().is_some_and(|p| p.water == Some(country::Water::Sea));
     for (i, l) in LAYERS.iter().enumerate() {
         let base = match l.base {
             None => floor_top + 6.0,
             Some(b) => b * hgt + if b == 1.0 { 4.0 } else { 0.0 },
         };
-        // open sea: the far ridge lies down flat as the horizon, with only its landmarks on it
-        let open = sea && i == 0;
-        let line = forest::Treeline {
+        let d = forest::treeline(&forest::Treeline {
             width: w,
             height: hgt,
             base,
             min_h: l.min_h * hgt,
-            max_h: if open { 0.0 } else { l.max_h * hgt * if i < 3 { tall } else { 1.0 } },
+            max_h: l.max_h * hgt * if i < 3 { tall } else { 1.0 },
             min_w: l.min_w * hgt,
             max_w: l.max_w * hgt,
             seed: seed.wrapping_add(i as u32 * 131),
             clearing: Some(forest::Clearing { center: w / 2.0, half: w * l.half, floor: l.clear }),
-            hills: if open { 0.0 } else { l.hills * hgt },
+            hills: l.hills * hgt,
             scrub: l.scrub * hgt,
             spacing: l.spacing,
-            kinds: plan.as_ref().map_or(&[], |p| p.kinds[i]),
-            gaps: gaps(plan.as_ref(), i, w, hgt),
-        };
-        let mut d = if open { format!("M0 {}L{} {}L{} {}L0 {}Z", forest::num(hgt), forest::num(w), forest::num(hgt), forest::num(w), forest::num(base), forest::num(base)) } else { forest::treeline(&line) };
-        if let Some(p) = &plan {
-            let mut mr = forest::Rng::new(seed ^ (0x9e37 + i as u32 * 7919));
-            for m in p.marks.iter().filter(|m| m.layer == i) {
-                let x = m.at * w;
-                let y = if open { base } else { forest::ground_at(&line, x) };
-                d.push_str(&m.mark.draw(x, y, m.size * hgt, &mut mr));
-            }
-        }
+        });
         let svg = s("svg")
             .class("layer")
             .attr("viewBox", &format!("0 0 {w} {hgt}"))
@@ -715,26 +636,6 @@ fn build_scene() {
             .var("--fill", &format!("var(--l{})", i + 1))
             .child(s("path").attr("d", &d));
         scene.append_child(&svg.el()).unwrap();
-        if i == 0 {
-            if let Some(water) = plan.as_ref().and_then(|p| p.water) {
-                // the sky lies on the water; a lake starts at the far shore, the sea at the horizon
-                let top = if water == country::Water::Sea { base } else { base + hgt * 0.012 };
-                let wd = h("div").class("layer water").var("--i", "0.5").var("--depth", &(LAYERS.len()).to_string()).html();
-                dom::set_style(&wd, "top", &px(top));
-                dom::set_style(&wd, "height", &px(LAYERS[1].base.unwrap_or(0.72) * hgt + hgt * 0.06 - top));
-                for k in 0..7 {
-                    let g = h("i").html();
-                    dom::set_style(&g, "top", &format!("{}%", fx(8.0 + k as f64 * 12.0 + r.next() * 6.0, 1)));
-                    dom::set_style(&g, "left", &format!("{}%", fx(r.next() * 80.0, 1)));
-                    dom::set_style(&g, "width", &format!("{}%", fx(6.0 + r.next() * 18.0, 1)));
-                    wd.append_child(&g).unwrap();
-                }
-                scene.append_child(&wd).unwrap();
-            }
-        }
-        if i == 3 && plan.as_ref().is_some_and(|p| p.flowers) {
-            scene.append_child(&flowers(w, hgt, base, seed)).unwrap();
-        }
         if let Some(mist) = l.mist {
             // fog sits in front of this tree line and behind the nearer ones
             let m = h("div").class("mist").html();
@@ -1128,34 +1029,14 @@ fn start_life() {
     }
 }
 
-/// Which bird flies next: one of the country's, or gulls where it has none of its own.
-fn species() -> Bird {
-    let (seed, country) = ov(|o| (o.scene_seed, o.country.clone()));
-    let pool = country::plan(country.as_deref(), seed).map_or(&[][..], |p| p.birds);
-    let total: f64 = pool.iter().map(|b| b.1).sum();
-    let mut v = dom::random() * total;
-    for &(b, wt) in pool {
-        if v < wt {
-            return b;
-        }
-        v -= wt;
-    }
-    Bird::Gull
-}
-
 fn flock(midway: bool) {
     let (w, hgt) = screen();
     let rnd = dom::random;
-    let kind = species();
     let dir = if rnd() < 0.5 { 1.0 } else { -1.0 };
+    let n = 2 + (rnd() * 8.0).floor() as u32;
     let near = rnd(); // 0 far and small, 1 closer and larger
-    // swallows dart past in twos and threes; storks sail alone or in pairs; cranes fly in a V
-    let (n, size, speed) = match kind {
-        Bird::Gull => (2 + (rnd() * 8.0).floor() as u32, 5.0 + near * 8.0, 22.0 + near * 30.0),
-        Bird::Swallow => (1 + (rnd() * 4.0).floor() as u32, 4.0 + near * 4.0, 70.0 + near * 60.0),
-        Bird::Stork => (1 + (rnd() * 2.0).floor() as u32, 11.0 + near * 7.0, 16.0 + near * 12.0),
-        Bird::Crane => (5 + (rnd() * 8.0).floor() as u32, 8.0 + near * 5.0, 24.0 + near * 16.0),
-    };
+    let size = 5.0 + near * 8.0;
+    let speed = 22.0 + near * 30.0; // px per second
     let t = (w + 500.0) / speed;
     let f = h("div").class("flock").html();
     let horizon = dom::root().style().get_property_value("--horizon").unwrap_or_default();
@@ -1167,7 +1048,7 @@ fn flock(midway: bool) {
         ("--x0", if dir > 0.0 { "-250px".into() } else { format!("{}px", forest::num(w + 250.0)) }),
         ("--x1", if dir > 0.0 { format!("{}px", forest::num(w + 250.0)) } else { "-250px".into() }),
         ("--bt", format!("{}s", fx(5.0 + rnd() * 5.0, 1))),
-        ("--bob", format!("{}px", fx(if kind == Bird::Swallow { 25.0 + rnd() * 45.0 } else { 8.0 + rnd() * 22.0 }, 0))),
+        ("--bob", format!("{}px", fx(8.0 + rnd() * 22.0, 0))),
         ("--bird", forest::mix(&horizon, "#0a1c15", 0.62 + near * 0.25)),
     ];
     for (k, v) in vars {
@@ -1175,18 +1056,14 @@ fn flock(midway: bool) {
     }
     let mut svg = s("svg").attr("width", "1").attr("height", "1");
     // a loose V behind the leader, or a scatter
-    let vee = match kind {
-        Bird::Crane => true,
-        Bird::Gull => n > 3 && rnd() < 0.6,
-        _ => false,
-    };
+    let vee = n > 3 && rnd() < 0.6;
     for k in 0..n {
         let row = k.div_ceil(2) as f64;
         let side = if k % 2 == 1 { 1.0 } else { -1.0 };
         let x = if vee { -dir * row * size * 2.6 + (rnd() - 0.5) * size } else { (rnd() - 0.5) * size * 12.0 };
         let y = if vee { side * row * size * 1.5 + (rnd() - 0.5) * size * 0.6 } else { (rnd() - 0.5) * size * 6.0 };
         let sz = size * (0.8 + rnd() * 0.4);
-        svg = svg.child(bird(kind, x, y, sz, dir));
+        svg = svg.child(bird(x, y, sz));
     }
     f.append_child(&svg.el()).unwrap();
     let me = f.clone();
@@ -1198,44 +1075,8 @@ fn flock(midway: bool) {
     dom::by_id("birds").append_child(&f).unwrap();
 }
 
-/// One bird: wings that beat a few times, then glide, and for the long-necked and fork-tailed
-/// kinds a body drawn along the way it flies (`dir`).
-fn bird(kind: Bird, x: f64, y: f64, s0: f64, dir: f64) -> B {
-    let wings = gull_wings(kind, s0);
-    if kind == Bird::Gull {
-        return wings.attr("transform", &format!("translate({} {})", fx(x, 1), fx(y, 1)));
-    }
-    let body = match kind {
-        // forked tail streaming behind
-        Bird::Swallow => format!(
-            "M{a} 0L{b} 0M{b} 0L{c} {u}M{b} 0L{c} {dn}",
-            a = fx(dir * s0 * 0.35, 2),
-            b = fx(-dir * s0 * 0.25, 2),
-            c = fx(-dir * s0 * 0.85, 2),
-            u = fx(-s0 * 0.22, 2),
-            dn = fx(s0 * 0.18, 2),
-        ),
-        // neck stretched ahead with a long bill, legs trailing past the tail
-        _ => format!(
-            "M{nose} {ny}L{head} 0L{tail} 0L{feet} {fy}",
-            nose = fx(dir * s0 * 1.45, 2),
-            ny = fx(s0 * 0.06, 2),
-            head = fx(dir * s0 * 1.15, 2),
-            tail = fx(-dir * s0 * 0.5, 2),
-            feet = fx(-dir * s0 * 1.35, 2),
-            fy = fx(s0 * 0.08, 2),
-        ),
-    };
-    let stroke = fx((s0 * if kind == Bird::Swallow { 0.12 } else { 0.1 }).max(1.0), 2);
-    s("g")
-        .attr("transform", &format!("translate({} {})", fx(x, 1), fx(y, 1)))
-        .child(wings)
-        .child(s("path").attr("d", &body).attr("stroke-width", &stroke))
-}
-
-/// The beating wings: a gull's curve, a swallow's narrow sickle, the broad flat sails of storks
-/// and cranes, which beat slowly and glide long.
-fn gull_wings(kind: Bird, s0: f64) -> B {
+/// One bird: a curved gull silhouette whose wings beat a few times, then glide.
+fn bird(x: f64, y: f64, s0: f64) -> B {
     let wing = |tip: f64, bend: f64| {
         format!(
             "M{} {}Q{} {} 0 0Q{} {} {} {}",
@@ -1249,21 +1090,13 @@ fn gull_wings(kind: Bird, s0: f64) -> B {
             fx(tip * s0, 2)
         )
     };
-    let (up, mid, down) = match kind {
-        Bird::Swallow => (wing(-0.5, -0.2), wing(0.05, -0.32), wing(0.45, 0.05)),
-        Bird::Stork | Bird::Crane => (wing(-0.32, -0.22), wing(-0.04, -0.12), wing(0.28, 0.02)),
-        Bird::Gull => (wing(-0.6, -0.55), wing(-0.08, -0.38), wing(0.42, -0.12)),
-    };
-    let dur = match kind {
-        Bird::Swallow => 1.0 + dom::random() * 0.8,
-        Bird::Stork => 4.5 + dom::random() * 2.5,
-        _ => 2.2 + dom::random() * 1.6,
-    };
+    let (up, mid, down) = (wing(-0.6, -0.55), wing(-0.08, -0.38), wing(0.42, -0.12));
+    let dur = 2.2 + dom::random() * 1.6;
     let values = [&mid, &up, &down, &up, &down, &mid, &mid].map(|s| s.as_str()).join(";");
-    let width = if matches!(kind, Bird::Stork | Bird::Crane) { 0.13 } else { 0.16 };
     s("path")
         .attr("d", &mid)
-        .attr("stroke-width", &fx((s0 * width).max(1.1), 2))
+        .attr("transform", &format!("translate({} {})", fx(x, 1), fx(y, 1)))
+        .attr("stroke-width", &fx((s0 * 0.16).max(1.1), 2))
         .child(
             s("animate")
                 .attr("attributeName", "d")
@@ -1592,16 +1425,6 @@ fn demo_move() {
     });
 }
 
-/// Asks which country this Mac is in (it can change on a trip) and redraws when it did.
-fn refresh_country() {
-    tauri::spawn(async {
-        let c: Option<String> = tauri::invoke("country_now", tauri::none()).await.ok().flatten();
-        if ov(|o| std::mem::replace(&mut o.country, c.clone()) != c) && ov(|o| !o.built_for.is_empty()) {
-            build_scene();
-        }
-    });
-}
-
 // ---------- boot ----------
 
 fn bind() {
@@ -1675,9 +1498,6 @@ fn bind() {
         build_weather();
     });
     dom::interval(60000, || {
-        if dom::param("country").is_none() {
-            refresh_country();
-        }
         if ov(|o| o.current.is_none()) {
             return;
         }
@@ -1752,11 +1572,6 @@ pub fn start(mode: &str) {
     });
     build();
     bind();
-    // test hook: &country=EE draws that country's scene
-    match dom::param("country").filter(|c| !c.is_empty()) {
-        Some(c) => ov(|o| o.country = Some(c.to_uppercase())),
-        None => refresh_country(),
-    }
 
     if moving {
         let _ = dom::body().class_list().add_1("move");
