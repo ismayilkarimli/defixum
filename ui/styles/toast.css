@@ -15,10 +15,19 @@ body {
   align-items: center;
   padding: 0 22px;
   box-sizing: border-box;
+  isolation: isolate;
+  opacity: 0;
+}
+/* The ground sits on its own layer: a background on body itself spreads to the whole square
+   window (the root behind it is transparent), losing the rounded corners. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
   background: var(--ground);
   border-radius: 16px;
   box-shadow: inset 0 0 0 1px rgba(226, 236, 222, 0.08);
-  opacity: 0;
 }
 body.on { animation: life var(--life, 5s) ease both; }
 body.move { cursor: pointer; }
