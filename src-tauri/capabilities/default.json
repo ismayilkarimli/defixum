@@ -1,6 +1,6 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "windows": ["main", "overlay", "bedtime", "toast"],
+  "windows": ["main", "overlay", "bedtime", "move", "toast"],
   "permissions": ["core:default", "core:window:allow-start-dragging"]
 }

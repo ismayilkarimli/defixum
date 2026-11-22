@@ -666,18 +666,21 @@ fn move_tick(app: &AppHandle, core: &Shared, dt: Duration) {
         core.lock().unwrap().move_clock.reset();
         return;
     }
-    // nobody is there to see it, and a screen that's off isn't being looked at
-    if up || macos::display_asleep() {
+    if up {
+        return;
+    }
+    // a screen that's gone dark means nobody is sitting at it: that was a break
+    if macos::display_asleep() {
+        core.lock().unwrap().move_clock.reset();
         return;
     }
     let every = Duration::from_secs(s.move_every_minutes.clamp(15, 180) as u64 * 60);
-    let idle = Duration::from_secs_f64(macos::idle_seconds().max(0.0));
-    // only asked when it matters: it's a question to the audio and power systems
-    let busy = (idle >= movement::AWAY || sitting + dt >= every) && macos::screen_busy();
+    // Check video or calls only when choosing how to show the reminder.
+    let busy = !others_up && sitting + dt >= every && macos::screen_busy();
     let payload = {
         let mut c = core.lock().unwrap();
         // wait for the pause or bedtime screen to go before coming up
-        if !c.move_clock.tick(dt, idle, busy, every) || others_up {
+        if !c.move_clock.tick(dt, every) || others_up {
             return;
         }
         let sitting = (c.move_clock.sitting().as_secs() / 60) as u32;
