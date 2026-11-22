@@ -32,6 +32,10 @@ pub struct Rule {
     pub daily_minutes: Option<u32>,
     pub separate_limits: bool,
     pub schedule: Schedule,
+    /// its own "open for" minutes; None follows the settings
+    pub session_options: Option<Vec<u32>>,
+    /// its own "one more minute"; None follows the settings
+    pub extend_minute: Option<bool>,
     #[serde(flatten)]
     pub rest: Map<String, Value>,
 }
@@ -51,6 +55,8 @@ impl Default for Rule {
             daily_minutes: None,
             separate_limits: false,
             schedule: Schedule::default(),
+            session_options: None,
+            extend_minute: None,
             rest: Map::new(),
         }
     }
@@ -75,6 +81,7 @@ impl Default for Schedule {
 #[serde(default)]
 pub struct Settings {
     pub session_options: Vec<u32>,
+    pub extend_minute: bool,
     pub idle_seconds: u64,
     pub sky: String,
     pub weather: bool,
@@ -96,6 +103,7 @@ impl Default for Settings {
     fn default() -> Self {
         Settings {
             session_options: vec![2, 5, 15],
+            extend_minute: true,
             idle_seconds: 60,
             sky: "time".into(),
             weather: true,
@@ -212,7 +220,7 @@ pub struct Move {
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(default)]
 pub struct Toast {
-    /// "switch" or "move"
+    /// "switch", "move" or "extend"
     pub kind: String,
     pub minutes: u32,
     pub seconds: u32,

@@ -376,6 +376,12 @@ fn build() {
                         .child(
                             h("label")
                                 .class("row")
+                                .child(titled("One more minute", "In a session's last 5 seconds, a note offers one extra minute, once. It doesn't count toward your limits"))
+                                .child(switch("extend-minute")),
+                        )
+                        .child(
+                            h("label")
+                                .class("row")
                                 .child(titled("Stop counting time when idle for", "Time on a site only counts while you're using the computer"))
                                 .child(unit(number("idle-seconds", 10, 900), " sec")),
                         ),
@@ -606,6 +612,20 @@ fn editor_dom() -> B {
                         )
                         .child(h("p").class("help").id("prompt-help").text("One is picked at random each time.")),
                 ),
+        )
+        .child(
+            h("div")
+                .class("field")
+                .id("sessions")
+                .child(h("h3").text("Open for"))
+                .child(
+                    h("label")
+                        .class("inline")
+                        .text("Minutes offered after the pause ")
+                        .child(h("input").attr("type", "text").id("f-sessions").attr("inputmode", "numeric").attr("aria-label", "Minutes offered after the pause")),
+                )
+                .child(h("label").class("limit").child(limit_box("f-extend")).text(" Offer one more minute as time runs out"))
+                .child(h("p").class("help").text("Starts from your Setup defaults. Changes here apply to this rule only.")),
         )
         .child(
             h("div")
@@ -889,6 +909,40 @@ fn render_editor() {
     }
     draw_help(&boxes);
 
+    // session lengths and one more minute: the settings' unless changed here
+    let defaults = settings();
+    let sessions = dom::input("f-sessions");
+    sessions.set_value(&join_options(r.session_options.as_ref().unwrap_or(&defaults.session_options)));
+    sessions.set_placeholder(&join_options(&defaults.session_options));
+    {
+        let (id, e) = (id.clone(), sessions.clone());
+        dom::on::<Event>(&sessions, "change", move |_| {
+            let base = settings().session_options;
+            let list = parse_options(&e.value());
+            let shown = with_rule(&id, |r| {
+                if !list.is_empty() {
+                    r.session_options = (list != base).then_some(list);
+                }
+                join_options(r.session_options.as_ref().unwrap_or(&base))
+            });
+            if let Some(v) = shown {
+                e.set_value(&v);
+            }
+            schedule_save();
+        });
+    }
+    let extend = dom::input("f-extend");
+    extend.set_checked(r.extend_minute.unwrap_or(defaults.extend_minute));
+    {
+        let (id, e) = (id.clone(), extend.clone());
+        dom::on::<Event>(&extend, "change", move |_| {
+            let on = e.checked();
+            let base = settings().extend_minute;
+            with_rule(&id, |r| r.extend_minute = (on != base).then_some(on));
+            schedule_save();
+        });
+    }
+
     // limits
     bind_limit(&id, "f-opens-on", "f-opens", r.daily_opens, 5.0, |r, v| r.daily_opens = v);
     bind_limit(&id, "f-mins-on", "f-mins", r.daily_minutes, 30.0, |r, v| r.daily_minutes = v);
@@ -993,7 +1047,7 @@ fn render_editor() {
 
 fn sync_mode(id: &str) {
     let block = with_rule(id, |r| r.mode == "block").unwrap_or(false);
-    for el in ["pause-len", "pause-style", "limits"] {
+    for el in ["pause-len", "pause-style", "sessions", "limits"] {
         dom::by_id(el).set_hidden(block);
     }
 }
@@ -1300,6 +1354,7 @@ fn render_setup() {
     }
     cool.set_disabled(!set.switch_limit);
     dom::input("move-reminder").set_checked(set.move_reminder);
+    dom::input("extend-minute").set_checked(set.extend_minute);
     for (id, v) in [("move-every", set.move_every_minutes), ("move-prompt", set.move_prompt_seconds)] {
         let el = dom::input(id);
         if !dom::is_active(&el) {
@@ -1313,6 +1368,20 @@ fn render_setup() {
     }
     mb.set_disabled(!set.move_reminder);
     apply_sky();
+}
+
+/// "5, 2, 15" → [2, 5, 15]: whole minutes from 1 to 240, at most four.
+fn parse_options(text: &str) -> Vec<u32> {
+    let mut list: Vec<u32> = text
+        .split(|c: char| c.is_whitespace() || c == ',')
+        .map(num)
+        .filter(|n| n.fract() == 0.0 && (1.0..=240.0).contains(n))
+        .map(|n| n as u32)
+        .collect();
+    list.sort_unstable();
+    list.dedup();
+    list.truncate(4);
+    list
 }
 
 fn join_options(v: &[u32]) -> String {
@@ -1359,18 +1428,9 @@ fn bind_setup() {
     {
         let e = so.clone();
         dom::on::<Event>(&so, "change", move |_| {
-            let mut list: Vec<u32> = e
-                .value()
-                .split(|c: char| c.is_whitespace() || c == ',')
-                .map(num)
-                .filter(|n| n.fract() == 0.0 && (1.0..=240.0).contains(n))
-                .map(|n| n as u32)
-                .collect();
+            let list = parse_options(&e.value());
             let out = cfg(|c| {
                 if !list.is_empty() {
-                    list.sort_unstable();
-                    list.dedup();
-                    list.truncate(4);
                     c.settings.session_options = list;
                 }
                 join_options(&c.settings.session_options)
@@ -1450,6 +1510,15 @@ fn bind_setup() {
     }
     bind_number("switches-per-minute", 1.0, 60.0, 6.0, |s, v| s.switches_per_minute = v as u32);
     bind_number("switch-cooldown", 5.0, 3600.0, 60.0, |s, v| s.switch_cooldown_seconds = v as u32);
+    let ex = dom::input("extend-minute");
+    {
+        let e = ex.clone();
+        dom::on::<Event>(&ex, "change", move |_| {
+            let on = e.checked();
+            cfg(|c| c.settings.extend_minute = on);
+            schedule_save();
+        });
+    }
     let mv = dom::input("move-reminder");
     {
         let m = mv.clone();

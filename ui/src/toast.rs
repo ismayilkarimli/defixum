@@ -23,10 +23,20 @@ fn show(t: Toast) {
     dom::clear_interval(TIMER.take());
     let body = dom::body();
     let moving = t.kind == "move";
+    let extend = t.kind == "extend";
     KIND.with(|k| *k.borrow_mut() = t.kind.clone());
-    dom::toggle_class(&body, "move", moving);
+    dom::toggle_class(&body, "move", moving || extend);
     let head = dom::by_id("head");
-    if moving {
+    if extend {
+        UNTIL.set(t.until);
+        dom::clear(&head);
+        head.append_with_str_1("Time's up in ").unwrap();
+        head.append_child(&h("span").id("left").el()).unwrap();
+        dom::set_text(&dom::by_id("why"), "Click for one more minute. It won't count.");
+        dom::set_var(&body, "--life", &format!("{}s", t.seconds.max(3) + 1));
+        tick();
+        TIMER.set(Some(dom::interval(250, tick)));
+    } else if moving {
         dom::set_text(&head, &format!("{} minutes at the screen", t.minutes));
         dom::set_text(&dom::by_id("why"), "Stand up and stretch when you get a chance.");
         dom::set_var(&body, "--life", &format!("{}s", t.seconds.max(3)));
@@ -41,7 +51,7 @@ fn show(t: Toast) {
         TIMER.set(Some(dom::interval(500, tick)));
     }
     let was_holding = dom::has_class(&body, "holding");
-    let holding = !moving && t.hold_started > 0.0;
+    let holding = t.kind == "switch" && t.hold_started > 0.0;
     hold_bar(if holding { t.hold_started } else { 0.0 }, t.hold_ms);
     // let go while it is up: no second fade-in, it just lingers and goes
     dom::toggle_class(&body, "linger", was_holding && !holding);
@@ -84,16 +94,22 @@ pub fn start() {
     body.append_child(&status.el()).unwrap();
     let bar = h("span").class("bar").attr("aria-hidden", "true").child(h("span").id("fill"));
     body.append_child(&bar.el()).unwrap();
-    // only the note to get up takes clicks: one click puts it away
+    // only the note to get up and the session's last seconds take clicks: one click puts the
+    // first away, and gives the second one more minute
     dom::on::<web_sys::Event>(&body, "click", |_| {
-        if KIND.with(|k| k.borrow().as_str() == "move") {
-            tauri::spawn(async {
-                let _ = tauri::call("move_close", tauri::none()).await;
-            });
-        }
+        let kind = KIND.with(|k| k.borrow().clone());
+        let cmd = match kind.as_str() {
+            "move" => "move_close",
+            "extend" => "session_extend",
+            _ => return,
+        };
+        tauri::spawn(async move {
+            let _ = tauri::call(cmd, tauri::none()).await;
+        });
     });
     match dom::param("demo").filter(|d| !d.is_empty()).as_deref() {
         Some("move") => show(Toast { kind: "move".into(), minutes: 45, seconds: 10, ..Toast::default() }),
+        Some("extend") => show(Toast { kind: "extend".into(), until: dom::now_ms() + 5000.0, seconds: 5, ..Toast::default() }),
         Some(d) => show(Toast {
             kind: "switch".into(),
             until: dom::now_ms() + 58000.0,

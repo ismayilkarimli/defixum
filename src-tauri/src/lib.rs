@@ -186,6 +186,11 @@ struct Core {
     allowances: HashMap<String, Instant>,
     /// rule id → when its allowance ran out (to say "time's up" instead of a plain pause)
     expired: HashMap<String, Instant>,
+    /// rule id → when the session's one extra minute began; once per session, and that minute's
+    /// time isn't counted
+    extended: HashMap<String, Instant>,
+    /// the session whose "one more minute" note is up
+    offered: Option<String>,
     intercept: Option<Intercept>,
     /// rule id → when a finished pause was dismissed by switching tab or app (and its prompt),
     /// so coming back within `WAITED_GRACE` doesn't make the user wait again
@@ -359,9 +364,10 @@ static TOAST_SHOWN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64:
 
 #[derive(Serialize, Clone, Default)]
 struct Toast {
-    /// "switch" (Cmd+Tab is resting) or "move" (time to get up)
+    /// "switch" (Cmd+Tab is resting), "move" (time to get up) or "extend" (a session is ending:
+    /// one more minute?)
     kind: &'static str,
-    /// end of the cooldown, unix milliseconds
+    /// end of the cooldown, or of the session, unix milliseconds
     until: i64,
     limit: u32,
     /// for "move": minutes at the screen, and how long the note stays
@@ -390,7 +396,7 @@ fn toast_show(app: &AppHandle, toast: Toast, stay: Option<Duration>) {
         let y = m.position().y + (56.0 * scale) as i32;
         let _ = w.set_position(tauri::PhysicalPosition::new(x, y));
     }
-    let _ = w.set_ignore_cursor_events(toast.kind != "move");
+    let _ = w.set_ignore_cursor_events(!matches!(toast.kind, "move" | "extend"));
     let _ = app.emit_to("toast", "toast", toast);
     if let Ok(ptr) = w.ns_window() {
         let win: &objc2_app_kit::NSWindow = unsafe { &*(ptr as *const objc2_app_kit::NSWindow) };
@@ -753,7 +759,12 @@ enum UiAction {
     None,
     Show(Intercept),
     Hide,
+    /// a session is about to end: offer one more minute; how long it has left
+    Offer(Duration),
 }
+
+/// How long before a session ends the "one more minute" note comes up.
+const OFFER_BEFORE: Duration = Duration::from_secs(5);
 
 fn monitor(app: AppHandle, core: Shared, runner: Arc<MainRunner>) {
     let own_pid = std::process::id() as i32;
@@ -814,6 +825,16 @@ fn monitor(app: AppHandle, core: Shared, runner: Arc<MainRunner>) {
                 overlay_show(&app, &i)
             }
             UiAction::Hide => overlay_hide(&app),
+            UiAction::Offer(left) => {
+                let t = Toast {
+                    kind: "extend",
+                    until: Local::now().timestamp_millis() + left.as_millis() as i64,
+                    seconds: left.as_secs_f64().ceil() as u32,
+                    ..Default::default()
+                };
+                let a = app.clone();
+                let _ = app.run_on_main_thread(move || toast_show(&a, t, Some(left + Duration::from_millis(1500))));
+            }
             UiAction::None => {}
         }
         maybe_save_stats(&core);
@@ -874,13 +895,30 @@ fn decide(c: &mut Core, target: &Target, focused: bool, url: Option<&str>, dt: D
     let today = rules::date_key(&local);
 
     let Some(mut reason) = v.reason else {
-        // Inside a granted window: count the time while the user is actually there.
-        if focused && macos::idle_seconds() < c.config.settings.idle_seconds as f64 {
+        // Inside a granted window: count the time while the user is actually there, but not the
+        // extra minute.
+        let extra = c.extended.get(&key).is_some_and(|&t| now >= t);
+        if focused && !extra && macos::idle_seconds() < c.config.settings.idle_seconds as f64 {
             let secs = dt.as_secs_f64().round() as u64;
             c.stats.count(&today, &key, |d| d.seconds += secs);
             c.stats_dirty = true;
         }
-        return if dismiss_intercept(c) { UiAction::Hide } else { UiAction::None };
+        if dismiss_intercept(c) {
+            return UiAction::Hide;
+        }
+        // nearly over: one more minute, once a session, while the user is on the page
+        let left = c.allowances.get(&key).map(|&t| t.saturating_duration_since(now));
+        if let Some(left) = left.filter(|l| !l.is_zero() && *l <= OFFER_BEFORE) {
+            if focused
+                && rule.extends(&c.config.settings)
+                && !c.extended.contains_key(&key)
+                && c.offered.as_deref() != Some(key.as_str())
+            {
+                c.offered = Some(key);
+                return UiAction::Offer(left);
+            }
+        }
+        return UiAction::None;
     };
 
     if c.intercept.as_ref().is_some_and(|i| i.key == key) || c.cooldown.contains_key(&key) {
@@ -899,10 +937,7 @@ fn decide(c: &mut Core, target: &Target, focused: bool, url: Option<&str>, dt: D
         _ => None,
     };
     let site = rules::host_of(url.unwrap_or_default());
-    let mut options: Vec<u32> = c.config.settings.session_options.iter().copied().filter(|&m| m > 0).collect();
-    options.sort_unstable();
-    options.dedup();
-    options.truncate(4);
+    let options = rule.sessions(&c.config.settings);
     // A pause the user already sat through, shortly ago: same prompt, nothing left to wait for.
     let waited = c
         .waited
@@ -922,7 +957,7 @@ fn decide(c: &mut Core, target: &Target, focused: bool, url: Option<&str>, dt: D
                 hour: local.hour(),
                 opens_today: day.opens,
                 minutes_today: day.seconds / 60,
-                longest_session: c.config.settings.session_options.iter().copied().max().unwrap_or(15),
+                longest_session: options.iter().copied().max().unwrap_or(15),
             };
             let seed = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -1005,6 +1040,11 @@ async fn overlay_continue(
         let minutes = minutes.clamp(1, 240);
         c.allowances.insert(i.key.clone(), Instant::now() + Duration::from_secs(minutes as u64 * 60));
         c.expired.remove(&i.key);
+        // a new session: it may have its one more minute again
+        c.extended.remove(&i.key);
+        if c.offered.as_deref() == Some(i.key.as_str()) {
+            c.offered = None;
+        }
         c.waited.remove(&i.key);
         c.stats.count(&rules::date_key(&Local::now()), &i.key, |d| d.opens += 1);
         c.save_stats();
@@ -1013,6 +1053,45 @@ async fn overlay_continue(
     };
     overlay_hide(&app);
     macos::activate(pid);
+    Ok(())
+}
+
+/// "One more minute" on the note as a session ends. Clicked a moment too late, after the time
+/// ran out and the page was paused again, it still gives the minute and takes the pause away.
+#[tauri::command]
+async fn session_extend(app: AppHandle, core: State<'_, Shared>) -> Result<(), String> {
+    let back_to = {
+        let mut c = core.lock().unwrap();
+        let key = c.offered.take().ok_or("nothing to extend")?;
+        if c.extended.contains_key(&key) {
+            return Err("this session already had its extra minute".into());
+        }
+        let now = Instant::now();
+        let minute = Duration::from_secs(60);
+        let mut back_to = None;
+        if let Some(end) = c.allowances.get(&key).copied().filter(|&t| t > now) {
+            c.allowances.insert(key.clone(), end + minute);
+            c.extended.insert(key.clone(), end);
+        } else if c.expired.get(&key).is_some_and(|t| t.elapsed() < Duration::from_secs(10)) {
+            if c.intercept.as_ref().is_some_and(|i| i.key == key) {
+                back_to = c.intercept.take().map(|i| i.target.pid);
+            }
+            c.allowances.insert(key.clone(), now + minute);
+            c.extended.insert(key.clone(), now);
+            c.expired.remove(&key);
+        } else {
+            return Err("the session is over".into());
+        }
+        log(format!("one more minute on {key}"));
+        back_to
+    };
+    if let Some(w) = app.get_webview_window("toast") {
+        let _ = w.hide();
+    }
+    if let Some(pid) = back_to {
+        overlay_hide(&app);
+        macos::activate(pid);
+    }
     Ok(())
 }
 
@@ -1232,6 +1311,14 @@ async fn save_config(app: AppHandle, core: State<'_, Shared>, mut config: Config
             .collect();
         r.pause_seconds = r.pause_seconds.clamp(1, 600);
     }
+    for r in &mut config.rules {
+        if let Some(v) = &mut r.session_options {
+            v.retain(|&m| (1..=240).contains(&m));
+            if v.is_empty() {
+                r.session_options = None;
+            }
+        }
+    }
     config.settings.session_options.retain(|&m| (1..=240).contains(&m));
     if config.settings.session_options.is_empty() {
         config.settings.session_options = rules::Settings::default().session_options;
@@ -1385,6 +1472,7 @@ pub fn run() {
             overlay_continue,
             overlay_back,
             overlay_keep,
+            session_extend,
             close_main,
             get_state,
             save_config,
@@ -1418,6 +1506,8 @@ pub fn run() {
                 intercept: None,
                 waited: HashMap::new(),
                 cooldown: HashMap::new(),
+                extended: HashMap::new(),
+                offered: None,
                 last_target: None,
                 last_prompt: None,
                 browser_status: HashMap::new(),

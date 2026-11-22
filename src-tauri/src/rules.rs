@@ -75,6 +75,26 @@ pub struct Rule {
     /// Each site gets its own daily limits (and its own unlocks) instead of sharing the rule's.
     pub separate_limits: bool,
     pub schedule: Schedule,
+    /// The "open for" minutes offered after the pause; None follows the settings.
+    pub session_options: Option<Vec<u32>>,
+    /// Offer one more minute as a session ends; None follows the settings.
+    pub extend_minute: Option<bool>,
+}
+
+impl Rule {
+    /// The minutes offered after this rule's pause: its own list, or the settings'.
+    pub fn sessions(&self, s: &Settings) -> Vec<u32> {
+        let mut v: Vec<u32> = self.session_options.as_ref().unwrap_or(&s.session_options).iter().copied().filter(|&m| m > 0).collect();
+        v.sort_unstable();
+        v.dedup();
+        v.truncate(4);
+        v
+    }
+
+    /// Whether a session on this rule's sites is offered one more minute at the end.
+    pub fn extends(&self, s: &Settings) -> bool {
+        self.extend_minute.unwrap_or(s.extend_minute)
+    }
 }
 
 impl Default for Rule {
@@ -92,6 +112,8 @@ impl Default for Rule {
             daily_minutes: None,
             separate_limits: false,
             schedule: Schedule::default(),
+            session_options: None,
+            extend_minute: None,
         }
     }
 }
@@ -101,6 +123,9 @@ impl Default for Rule {
 pub struct Settings {
     /// Minutes offered on the overlay's "continue for…" buttons.
     pub session_options: Vec<u32>,
+    /// In a session's last seconds, a note offers one more minute, once, that doesn't count
+    /// toward the day's time.
+    pub extend_minute: bool,
     /// Stop counting time on a site after this many seconds without input.
     pub idle_seconds: u64,
     /// How the pause screen and settings window are lit: "time" (the sky of the local hour),
@@ -136,6 +161,7 @@ impl Default for Settings {
     fn default() -> Self {
         Settings {
             session_options: vec![2, 5, 15],
+            extend_minute: true,
             idle_seconds: 60,
             sky: "time".into(),
             weather: true,
@@ -413,6 +439,21 @@ mod tests {
 
     fn at(y: i32, m: u32, d: u32, h: u32, min: u32) -> DateTime<Local> {
         Local.with_ymd_and_hms(y, m, d, h, min, 0).unwrap()
+    }
+
+    #[test]
+    fn a_rule_follows_the_settings_unless_it_has_its_own() {
+        let set = Settings::default();
+        let mut r = Rule::default();
+        assert_eq!(r.sessions(&set), vec![2, 5, 15]);
+        assert!(r.extends(&set));
+        r.session_options = Some(vec![20, 10, 0, 10]);
+        r.extend_minute = Some(false);
+        assert_eq!(r.sessions(&set), vec![10, 20]);
+        assert!(!r.extends(&set));
+        let off = Settings { extend_minute: false, ..Settings::default() };
+        assert!(!Rule::default().extends(&off));
+        assert!(Rule { extend_minute: Some(true), ..Rule::default() }.extends(&off));
     }
 
     #[test]
