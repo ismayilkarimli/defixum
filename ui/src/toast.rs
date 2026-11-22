@@ -25,14 +25,14 @@ fn show(t: Toast) {
     let moving = t.kind == "move";
     let extend = t.kind == "extend";
     KIND.with(|k| *k.borrow_mut() = t.kind.clone());
-    dom::toggle_class(&body, "move", moving || extend);
+    dom::toggle_class(&body, "move", moving);
+    dom::toggle_class(&body, "extend", extend);
     let head = dom::by_id("head");
     if extend {
         UNTIL.set(t.until);
         dom::clear(&head);
         head.append_with_str_1("Time's up in ").unwrap();
         head.append_child(&h("span").id("left").el()).unwrap();
-        dom::set_text(&dom::by_id("why"), "Click for one more minute. It won't count.");
         dom::set_var(&body, "--life", &format!("{}s", t.seconds.max(3) + 1));
         tick();
         TIMER.set(Some(dom::interval(250, tick)));
@@ -92,6 +92,7 @@ pub fn start() {
         .child(h("small").id("why").text("Stay with what you have open."));
     let body = dom::body();
     body.append_child(&status.el()).unwrap();
+    body.append_child(&h("button").id("more").attr("type", "button").text("+1 minute").el()).unwrap();
     let bar = h("span").class("bar").attr("aria-hidden", "true").child(h("span").id("fill"));
     body.append_child(&bar.el()).unwrap();
     // only the note to get up and the session's last seconds take clicks: one click puts the
@@ -100,11 +101,15 @@ pub fn start() {
         let kind = KIND.with(|k| k.borrow().clone());
         let cmd = match kind.as_str() {
             "move" => "move_close",
-            "extend" => "session_extend",
             _ => return,
         };
         tauri::spawn(async move {
             let _ = tauri::call(cmd, tauri::none()).await;
+        });
+    });
+    dom::on::<web_sys::Event>(&dom::by_id("more"), "click", |_| {
+        tauri::spawn(async {
+            let _ = tauri::call("session_extend", tauri::none()).await;
         });
     });
     match dom::param("demo").filter(|d| !d.is_empty()).as_deref() {

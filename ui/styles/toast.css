@@ -72,3 +72,19 @@ body.on.linger { animation-name: linger; }
 strong { display: block; font: 500 16px/1.3 var(--display); }
 small { display: block; color: var(--muted); }
 #left { font-variant-numeric: tabular-nums; }
+
+/* the session's last seconds: a countdown and one button, nothing else */
+#more { display: none; }
+body.extend #why { display: none; }
+body.extend #more {
+  display: block;
+  margin-left: auto;
+  padding: 7px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--moss);
+  color: #10201a;
+  font: 600 13px/1 -apple-system, system-ui, sans-serif;
+  cursor: pointer;
+}
+body.extend #more:hover { background: #bcd8b3; }
